@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build outputs
+dist/
+.output/
+.vinxi/
+.cache/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Drizzle
+drizzle/meta/
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+
+# Agent
+.agent/
+.agents/
+.claude/
+.github/

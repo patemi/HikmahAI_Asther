@@ -1,0 +1,45 @@
+name: asther
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: always
+    container_name: asther_postgre
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-astheron}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supersmart}
+      POSTGRES_DB: ${POSTGRES_DB:-asther}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-astheron} -d ${POSTGRES_DB:-asther}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  asther-web:
+    build:
+      context: ./asther
+      dockerfile: Dockerfile
+    restart: always
+    container_name: asther-web
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-astheron}:${POSTGRES_PASSWORD:-supersmart}@postgres:5432/${POSTGRES_DB:-asther}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEFAULT_USERNAME=${DEFAULT_USERNAME:-asther}
+      - DEFAULT_PASSWORD=${DEFAULT_PASSWORD:-admin}
+      - MEMORY_LENGTH=${MEMORY_LENGTH:-5}
+      - BEARER_TOKEN=${BEARER_TOKEN}
+      - BASE_URL=${BASE_URL}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - CORS_ORIGIN=${CORS_ORIGIN:-*}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

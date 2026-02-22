@@ -1,0 +1,48 @@
+Ekabot
+build chatbot API server with UI for management
+handle chat memory and knowledge
+
+mono repo : ekabot, postgre
+
+tech stack :
+pgvector
+bun
+postgres
+openai models : gpt-4.1-nano & gpt-4.1
+embeddings : text-embedding-3-small
+frontend & backend = Next.js
+ORM : drizzle
+
+web pages
+1. login
+single user app
+credential configurable from .env
+default username= aron ; password=admin
+no login timeout
+2. dashboard (LLM configuration)
+- configure system propmt & bot persona
+- manage knowledge
+- see chat history
+- show api curl documnetation & bearer token
+- define memory lenght (default 5, configurable in .env)
+- change user username and password
+
+how its works
+1. the knowledge is applied to all chat
+2. If user upload contain image attachment use gpt-4.1 , else use gpt-4.1-nano
+3. No document input no parsing capability
+4. use bearer token authorization
+5. save all user chat in db, but only use several top chat as memory
+6. API input must contain username, phonenumber ,& chat. use phonenumber as identifier to save chat in memory & db
+7. input knowledge only accept plain text, so no parsing. just chunking & embedding
+user can write many txt file inside app and give the txt title. then use it as knowledge
+8. handle vector db knowledge update when user add or remove txt
+9. handle memory management in postgre
+
+use Ui-skills to design sopisticated frontend, make modern and simple UI (.github\skills\ui-skills)
+use context7 mcp to read documentation (tanstack-start, hono.js, openai API, ,pgvector, etc.)
+
+use this as app icons in folder 'figures\icons'
+put this image in README 'figures\workflow.png'
+write README, LICENSE, .env , .gitignore
+make this project deployable on docker
