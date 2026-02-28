@@ -15,9 +15,37 @@ const chatRequestSchema = z.object({
   participantId: z.string(),
   message: z.string(),
   userName: z.string().optional(),
+  userId: z.string().optional(),
   imageUrl: z.string().optional(),
   saveHistory: z.boolean().optional().default(true),
 });
+
+function getUserIdFromMetadata(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const userId = (metadata as { userId?: unknown }).userId;
+  return typeof userId === "string" ? userId : null;
+}
+
+function getConversationTitleFromMetadata(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const title = (metadata as { title?: unknown }).title;
+  return typeof title === "string" && title.trim() ? title.trim() : null;
+}
+
+function buildConversationTitle(text: string): string {
+  const cleaned = text
+    .replace(/\s+/g, " ")
+    .replace(/[\n\r\t]/g, " ")
+    .trim();
+
+  if (!cleaned) return "Percakapan baru";
+
+  const withoutPunctuation = cleaned.replace(/[!?.,;:]+$/g, "").trim();
+  const words = withoutPunctuation.split(" ").filter(Boolean);
+  const title = words.slice(0, 8).join(" ");
+
+  return title.length > 52 ? `${title.slice(0, 52).trim()}…` : title;
+}
 
 // Verify bearer token
 async function verifyAuth(request: NextRequest) {
@@ -49,7 +77,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { participantId, message, userName, imageUrl, saveHistory } = parsed.data;
+    const { participantId, message, userName, userId, imageUrl, saveHistory } = parsed.data;
 
     // Get or create participant (only if saving history)
     let participant = null;
@@ -59,15 +87,59 @@ export async function POST(request: NextRequest) {
       });
 
       if (!participant) {
+        const title = buildConversationTitle(message);
+        const metadata = {
+          ...(userId ? { userId } : {}),
+          title,
+        };
+
         [participant] = await db
           .insert(schema.chatParticipants)
-          .values({ externalId: participantId, name: userName })
+          .values({
+            externalId: participantId,
+            name: userName,
+            metadata,
+          })
           .returning();
+      } else if (userId && getUserIdFromMetadata(participant.metadata) !== userId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       } else if (userName && participant.name !== userName) {
         // Update name if provided and different
         [participant] = await db
           .update(schema.chatParticipants)
-          .set({ name: userName, updatedAt: new Date() })
+          .set({
+            name: userName,
+            metadata: userId
+              ? {
+                  ...(participant.metadata && typeof participant.metadata === "object"
+                    ? participant.metadata
+                    : {}),
+                  userId,
+                }
+              : participant.metadata,
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.chatParticipants.id, participant.id))
+          .returning();
+      }
+
+      if (participant && !getConversationTitleFromMetadata(participant.metadata)) {
+        const baseMetadata =
+          participant.metadata && typeof participant.metadata === "object"
+            ? participant.metadata
+            : {};
+        const title = buildConversationTitle(message);
+
+        [participant] = await db
+          .update(schema.chatParticipants)
+          .set({
+            metadata: {
+              ...baseMetadata,
+              ...(userId ? { userId } : {}),
+              title,
+            },
+            updatedAt: new Date(),
+          })
           .where(eq(schema.chatParticipants.id, participant.id))
           .returning();
       }
@@ -118,6 +190,26 @@ export async function POST(request: NextRequest) {
       systemPrompt += `\n\nThe user's name is ${currentUserName}. Address them by name when appropriate.`;
     }
 
+    systemPrompt += `
+
+Answer style rules (VERY IMPORTANT):
+- Always answer in clear Indonesian unless user asks another language.
+- Keep responses neat, structured, and easy to scan.
+- Use markdown formatting with this default structure when relevant:
+  1) **Jawaban Singkat** (1-3 kalimat)
+  2) **Penjelasan** (bullet points)
+  3) **Kesimpulan** (1 kalimat)
+- Use short paragraphs and bullet lists, avoid long dense blocks.
+- For dalil/references, mention them naturally according to the flow of the discussion, not as a rigid standalone classification section.
+- Only include dalil that are directly relevant to the user's current question.
+- If quoting Arabic verse/hadith text, ALWAYS include its Indonesian meaning right after it.
+- Keep dalil concise (prioritize 1-2 strongest references unless user asks for detailed expansion).
+- For Islamic content, prioritize adab, clarity, and avoid overclaiming certainty.
+- If there are differing scholarly opinions, present them fairly and mention this explicitly.
+- If unsure, say uncertainty clearly and suggest verifying with trusted ulama/source.
+- Avoid decorative symbols spam, excessive emoji, and repetitive wording.
+`;
+
     // RAG: Retrieve relevant knowledge
     if (config?.ragEnabled) {
       console.log("[RAG] RAG is enabled, retrieving knowledge for:", message);
@@ -164,9 +256,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    const selectedTextModel =
+      process.env.STRIX_LLM || process.env.LLM_MODEL || config?.textModel || MODELS.TEXT;
+
     // Create streaming response
     const stream = await chatCompletionStream(messages, {
-      model: config?.textModel || MODELS.TEXT,
+      model: selectedTextModel,
     });
 
     // Create a ReadableStream for SSE

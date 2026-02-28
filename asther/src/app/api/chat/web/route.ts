@@ -1,8 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.text();
+    const user = await getSession();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await request.json();
+    const body = JSON.stringify({
+      ...payload,
+      userId: user.id,
+      userName: payload?.userName || user.name || user.email,
+    });
     const token = process.env.BEARER_TOKEN || "changeme";
 
     const upstreamUrl = new URL("/api/chat", request.url);

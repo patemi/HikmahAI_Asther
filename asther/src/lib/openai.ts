@@ -13,15 +13,23 @@ async function resolveClientConfig() {
     columns: { openaiApiKey: true, baseUrl: true },
   });
 
-  const apiKey = config?.openaiApiKey || process.env.OPENAI_API_KEY || "";
-  const baseUrl = (config?.baseUrl || process.env.BASE_URL || "").trim();
+  const apiKey =
+    process.env.LLM_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    config?.openaiApiKey ||
+    "";
+  const baseUrl =
+    (process.env.BASE_URL || process.env.STRIX_BASE_URL || config?.baseUrl || "").trim();
 
   return { apiKey, baseUrl };
 }
 
 function resolveEmbeddingConfig() {
   const apiKey =
-    process.env.EMBEDDING_API_KEY || process.env.OPENAI_API_KEY || "";
+    process.env.EMBEDDING_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    process.env.LLM_API_KEY ||
+    "";
   const baseUrl = (process.env.EMBEDDING_BASE_URL || "").trim();
 
   return { apiKey, baseUrl };
@@ -36,7 +44,13 @@ async function getOpenAIClient() {
   if (!cachedClient || cachedKey !== apiKey || cachedBaseUrl !== baseUrl) {
     cachedKey = apiKey;
     cachedBaseUrl = baseUrl;
-    cachedClient = new OpenAI({ apiKey, baseURL: baseUrl || undefined });
+    cachedClient = new OpenAI({
+      apiKey,
+      baseURL: baseUrl || undefined,
+      defaultHeaders: {
+        "x-api-key": apiKey,
+      },
+    });
   }
 
   return cachedClient;
@@ -66,7 +80,7 @@ function getEmbeddingClient() {
 
 // Model constants
 export const MODELS = {
-  TEXT: "gpt-4.1-nano",
+  TEXT: process.env.STRIX_LLM || process.env.LLM_MODEL || "gpt-5",
   IMAGE: "gpt-4.1",
   EMBEDDING: "text-embedding-3-small",
 } as const;

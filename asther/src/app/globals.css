@@ -133,3 +133,46 @@ html.dark .border-stone-100 {
 .chat-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(45, 212, 168, 0.2);
 }
+
+/* ===== Gradient border (CSS mask technique) ===== */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(45,212,168,0.25), transparent 40%, transparent 60%, rgba(212,167,45,0.15));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ===== Single-play shimmer ===== */
+.shimmer-once {
+  background: linear-gradient(90deg, transparent 0%, rgba(45,212,168,0.06) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease-out 0.5s 1 both;
+}
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+/* ===== Slow spin for ornaments ===== */
+.animate-spin-slow {
+  animation: spin-slow 60s linear infinite;
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Blink cursor ===== */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}

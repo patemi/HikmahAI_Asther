@@ -3,9 +3,6 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: "standalone",
   reactCompiler: true,
-  serverActions: {
-    bodySizeLimit: "20mb",
-  },
   async headers() {
     const corsOrigin = process.env.CORS_ORIGIN || "*";
     return [

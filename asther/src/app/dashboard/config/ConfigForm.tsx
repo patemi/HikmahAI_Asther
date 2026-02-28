@@ -141,9 +141,11 @@ export default function ConfigForm({ config, envBearerToken, envOpenaiApiKey, en
               <label className={labelClass}>Text Model</label>
               <select
                 name="textModel"
-                defaultValue={config?.textModel || "gpt-4.1-nano"}
+                defaultValue={config?.textModel || "gpt-5"}
                 className={selectClass}
               >
+                <option value="gpt-5">gpt-5</option>
+                <option value="strix/gpt-5">strix/gpt-5</option>
                 <option value="gpt-4.1-nano">gpt-4.1-nano</option>
                 <option value="gpt-4.1-mini">gpt-4.1-mini</option>
                 <option value="gpt-4.1">gpt-4.1</option>

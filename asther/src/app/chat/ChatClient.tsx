@@ -1,14 +1,32 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
 }
 
-/* ── Crescent icon ── */
+interface ConversationItem {
+  participantId: string;
+  title: string;
+  preview: string;
+  updatedAt: string;
+  nickname?: string | null;
+}
+
+interface ChatClientProps {
+  botName: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+  };
+}
+
 function CrescentIcon({ className = "" }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -18,60 +36,82 @@ function CrescentIcon({ className = "" }: { className?: string }) {
   );
 }
 
-export default function ChatClient({
-  botName,
-}: {
-  botName: string;
-}) {
+function createConversationId() {
+  return `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export default function ChatClient({ botName, user }: ChatClientProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [participantId, setParticipantId] = useState("");
-  const [userName, setUserName] = useState("");
+  const [userName, setUserName] = useState(user.name || user.email.split("@")[0] || "");
   const [showNameInput, setShowNameInput] = useState(false);
+  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  /* ── lifecycle ─────────────────────────────────────────── */
-  useEffect(() => {
-    const storedId = sessionStorage.getItem("asther-participant-id");
-    const storedName = sessionStorage.getItem("asther-user-name");
-
-    if (storedId) {
-      setParticipantId(storedId);
-    } else {
-      const newId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      sessionStorage.setItem("asther-participant-id", newId);
-      setParticipantId(newId);
-    }
-
-    if (storedName) {
-      setUserName(storedName);
-      setShowNameInput(true);
+  const loadConversations = useCallback(async () => {
+    try {
+      const response = await fetch("/api/chat/conversations", { cache: "no-store" });
+      if (!response.ok) return;
+      const data = await response.json();
+      setConversations(data.conversations || []);
+    } catch {
+      // noop
     }
   }, []);
+
+  const loadMessages = useCallback(async (targetParticipantId: string) => {
+    try {
+      const response = await fetch(`/api/chat/conversations/${targetParticipantId}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) return;
+      const data = await response.json();
+
+      setMessages(data.messages || []);
+      if (data?.participant?.nickname) {
+        setUserName(data.participant.nickname);
+      }
+    } catch {
+      // noop
+    }
+  }, []);
+
+  useEffect(() => {
+    loadConversations();
+  }, [loadConversations]);
+
+  useEffect(() => {
+    if (!conversations.length && !participantId) {
+      setParticipantId(createConversationId());
+      setMessages([]);
+      return;
+    }
+
+    if (conversations.length && !participantId) {
+      const latest = conversations[0];
+      setParticipantId(latest.participantId);
+      loadMessages(latest.participantId);
+    }
+  }, [conversations, participantId, loadMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  /* ── handlers ──────────────────────────────────────────── */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || loading) return;
-
-    const activeParticipantId = participantId || `user-${Date.now()}`;
-    if (!participantId) {
-      setParticipantId(activeParticipantId);
-      sessionStorage.setItem("asther-participant-id", activeParticipantId);
-    }
+    if (!input.trim() || loading || !participantId) return;
 
     const userMessage = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setLoading(true);
 
-    // Reset textarea height
     if (inputRef.current) inputRef.current.style.height = "auto";
 
     try {
@@ -81,20 +121,26 @@ export default function ChatClient({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          participantId: activeParticipantId,
+          participantId,
           message: userMessage,
           userName: userName || undefined,
           saveHistory: true,
         }),
       });
 
+      if (response.status === 401) {
+        window.location.reload();
+        return;
+      }
+
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No reader");
 
-      const decoder = new TextDecoder();
+      const decoder = new TextDecoder("utf-8");
       let assistantMessage = "";
+      let sseBuffer = "";
 
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
@@ -102,41 +148,46 @@ export default function ChatClient({
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value);
-        const lines = text.split("\n");
+        sseBuffer += decoder.decode(value, { stream: true });
+        const events = sseBuffer.split("\n\n");
+        sseBuffer = events.pop() || "";
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
+        for (const event of events) {
+          const lines = event.split("\n");
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
             const data = line.slice(6);
-            if (data === "[DONE]") break;
+            if (data === "[DONE]") continue;
 
             try {
               const { content } = JSON.parse(data);
-              if (content) {
-                assistantMessage += content;
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  updated[updated.length - 1] = {
-                    role: "assistant",
-                    content: assistantMessage,
-                  };
-                  return updated;
-                });
-              }
+              if (!content) continue;
+
+              assistantMessage += content;
+              setMessages((prev) => {
+                const updated = [...prev];
+                updated[updated.length - 1] = {
+                  role: "assistant",
+                  content: assistantMessage,
+                };
+                return updated;
+              });
             } catch {
-              // skip invalid JSON chunks
+              // wait until JSON complete
             }
           }
         }
       }
+
+      decoder.decode();
+      await loadConversations();
     } catch (error) {
       console.error("Chat error:", error);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content:
-            "Maaf, terjadi kesalahan saat memproses pesan Anda. Silakan coba lagi.",
+          content: "Maaf, terjadi kesalahan saat memproses pesan Anda. Silakan coba lagi.",
         },
       ]);
     } finally {
@@ -144,16 +195,40 @@ export default function ChatClient({
     }
   }
 
-  function clearChat() {
-    setMessages([]);
-    const newId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    sessionStorage.setItem("asther-participant-id", newId);
+  async function clearChat() {
+    const newId = createConversationId();
     setParticipantId(newId);
+    setMessages([]);
+    await loadConversations();
+  }
+
+  async function openConversation(targetParticipantId: string) {
+    setParticipantId(targetParticipantId);
+    await loadMessages(targetParticipantId);
+  }
+
+  async function deleteConversation(targetParticipantId: string) {
+    await fetch("/api/chat/conversations", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ participantId: targetParticipantId }),
+    });
+
+    if (participantId === targetParticipantId) {
+      const newId = createConversationId();
+      setParticipantId(newId);
+      setMessages([]);
+    }
+    await loadConversations();
+  }
+
+  async function handleLogout() {
+    await fetch("/api/chat-auth/logout", { method: "POST" });
+    window.location.reload();
   }
 
   function handleNameChange(name: string) {
     setUserName(name);
-    sessionStorage.setItem("asther-user-name", name);
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -170,214 +245,249 @@ export default function ChatClient({
     setInput(el.value);
   }
 
-  /* ── render ────────────────────────────────────────────── */
+  function renderAssistantMarkdown(content: string) {
+    return (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
+          ul: ({ children }) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
+          ol: ({ children }) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
+          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+          strong: ({ children }) => <strong className="font-semibold text-[#d4e8df]">{children}</strong>,
+          code: ({ className, children }) => {
+            const isInline = !className;
+            return isInline ? (
+              <code className="px-1 py-0.5 rounded bg-[#2dd4a8]/10 text-[#9de6cf] text-[12px]">{children}</code>
+            ) : (
+              <code className="block p-3 rounded-xl bg-[#081510] border border-[#2dd4a8]/15 text-[#c7e9dc] text-[12px] overflow-x-auto">
+                {children}
+              </code>
+            );
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    );
+  }
+
   return (
-    <div className="h-dvh flex flex-col bg-[#050a08] text-[#e8f0ec] font-[family-name:var(--font-dm-sans)]">
-      {/* ── Header ── */}
-      <header className="flex items-center justify-between px-4 sm:px-6 h-16 border-b border-[#2dd4a8]/[0.08] bg-[#050a08]/80 backdrop-blur-xl shrink-0">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="flex items-center justify-center size-9 rounded-full border border-[#2dd4a8]/[0.12] hover:bg-[#2dd4a8]/[0.06] transition-colors"
-            aria-label="Back to home"
-          >
-            <svg
-              className="w-4 h-4 text-[#7a9d8e]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+    <div className="h-dvh flex bg-[#050a08] text-[#e8f0ec] font-[family-name:var(--font-dm-sans)]">
+      <aside
+        className={`${sidebarOpen ? "w-[280px]" : "w-0"} transition-all duration-200 overflow-hidden border-r border-white/[0.05] bg-[#06120e]`}
+      >
+        <div className="h-full flex flex-col">
+          <div className="p-3 border-b border-white/[0.05]">
+            <button
+              onClick={clearChat}
+              className="w-full rounded-xl bg-[#2dd4a8] text-[#050a08] text-sm font-semibold py-2.5"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-          </Link>
-          <div className="flex items-center gap-2">
-            <CrescentIcon className="w-5 h-5 text-[#2dd4a8]" />
-            <div>
-              <h1 className="font-[family-name:var(--font-playfair)] font-bold text-lg leading-tight">
-                {botName}
-              </h1>
-              <p className="text-xs text-[#4a6b5c]">Asisten AI Keislaman</p>
-            </div>
+              + Chat Baru
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto chat-scrollbar p-2 space-y-1">
+            {conversations.map((conv) => (
+              <div key={conv.participantId} className="group">
+                <button
+                  onClick={() => openConversation(conv.participantId)}
+                  className={`w-full text-left p-2.5 rounded-lg border ${
+                    participantId === conv.participantId
+                      ? "border-[#2dd4a8]/25 bg-[#2dd4a8]/10"
+                      : "border-transparent hover:border-white/[0.06] hover:bg-white/[0.03]"
+                  }`}
+                >
+                  <p className="text-sm text-[#d2e7dc] line-clamp-1">{conv.title || "Percakapan"}</p>
+                  <p className="text-[11px] text-[#4a6b5c] line-clamp-1 mt-0.5">{conv.preview || "Belum ada pesan"}</p>
+                </button>
+                <button
+                  onClick={() => deleteConversation(conv.participantId)}
+                  className="hidden group-hover:block text-[10px] text-red-300/70 hover:text-red-300 px-2 pt-1"
+                >
+                  Hapus
+                </button>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 border-t border-white/[0.05]">
+            <p className="text-xs text-[#7a9d8e] mb-2 truncate">{user.name || user.email}</p>
+            <button
+              onClick={handleLogout}
+              className="w-full rounded-lg border border-white/[0.08] py-2 text-xs text-[#9ab8a8] hover:bg-white/[0.04]"
+            >
+              Logout
+            </button>
           </div>
         </div>
+      </aside>
 
-        <div className="flex items-center gap-2">
-          {showNameInput ? (
-            <input
-              type="text"
-              value={userName}
-              onChange={(e) => handleNameChange(e.target.value)}
-              onBlur={() => {
-                if (!userName) setShowNameInput(false);
-              }}
-              placeholder="Nama Anda..."
-              autoFocus
-              className="w-32 px-3 py-1.5 text-sm bg-[#2dd4a8]/[0.05] border border-[#2dd4a8]/[0.12] rounded-lg text-[#e8f0ec] placeholder-[#4a6b5c] focus:outline-none focus:border-[#2dd4a8]/30 transition-colors"
-            />
-          ) : (
+      <div className="flex-1 h-dvh flex flex-col min-w-0">
+        <header className="flex items-center justify-between px-4 sm:px-6 h-16 bg-[#050a08]/80 backdrop-blur-2xl shrink-0 border-b border-white/[0.04]">
+          <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowNameInput(true)}
-              className="text-xs text-[#4a6b5c] hover:text-[#7a9d8e] transition-colors px-2 py-1"
-              title="Set your name"
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="flex items-center justify-center size-9 rounded-xl border border-white/[0.07] hover:bg-[#2dd4a8]/[0.06]"
             >
-              {userName || "Atur nama"}
-            </button>
-          )}
-          <button
-            onClick={clearChat}
-            className="flex items-center justify-center size-9 rounded-full border border-[#2dd4a8]/[0.12] hover:bg-[#2dd4a8]/[0.06] transition-colors"
-            title="Percakapan baru"
-          >
-            <svg
-              className="w-4 h-4 text-[#7a9d8e]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-          </button>
-        </div>
-      </header>
-
-      {/* ── Messages ── */}
-      <div className="flex-1 overflow-y-auto chat-scrollbar">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
-          {/* Empty state */}
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-              {/* Islamic geometric ornament */}
-              <div className="size-20 rounded-2xl bg-[#2dd4a8]/[0.08] border border-[#2dd4a8]/[0.1] flex items-center justify-center mb-6">
-                <CrescentIcon className="w-10 h-10 text-[#2dd4a8]" />
-              </div>
-
-              {/* Greeting with Salam */}
-              <p className="text-[#d4a72d]/70 text-lg mb-2 font-[family-name:var(--font-playfair)] italic">
-                بِسْمِ اللَّهِ
-              </p>
-              <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold mb-2">
-                {userName ? `Assalamu'alaikum, ${userName}!` : "Assalamu'alaikum!"}
-              </h2>
-              <p className="text-[#4a6b5c] max-w-sm">
-                Tanyakan apa saja seputar Islam kepada {botName}. Saya siap membantu Anda mencari ilmu.
-              </p>
-
-              {/* Suggested prompts */}
-              <div className="mt-8 flex flex-wrap justify-center gap-2">
-                {[
-                  "Apa hukum sholat tahajjud?",
-                  "Jelaskan tentang rukun iman",
-                  "Bagaimana adab berdoa?",
-                ].map((prompt) => (
-                  <button
-                    key={prompt}
-                    onClick={() => {
-                      setInput(prompt);
-                      inputRef.current?.focus();
-                    }}
-                    className="px-4 py-2 text-sm border border-[#2dd4a8]/[0.1] rounded-full hover:bg-[#2dd4a8]/[0.06] hover:border-[#2dd4a8]/[0.18] transition-all text-[#7a9d8e] hover:text-[#e8f0ec]"
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Message bubbles */}
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-fade-in`}
-            >
-              <div
-                className={`max-w-[85%] sm:max-w-[75%] ${
-                  message.role === "user"
-                    ? "bg-[#2dd4a8] text-[#050a08] rounded-2xl rounded-br-md px-5 py-3"
-                    : "bg-[#2dd4a8]/[0.05] border border-[#2dd4a8]/[0.08] rounded-2xl rounded-bl-md px-5 py-3"
-                }`}
-              >
-                <p className="whitespace-pre-wrap text-[15px] leading-relaxed">
-                  {message.content}
-                </p>
-              </div>
-            </div>
-          ))}
-
-          {/* Typing indicator */}
-          {loading && messages[messages.length - 1]?.role === "user" && (
-            <div className="flex justify-start animate-fade-in">
-              <div className="bg-[#2dd4a8]/[0.05] border border-[#2dd4a8]/[0.08] rounded-2xl rounded-bl-md px-5 py-4">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="size-2 bg-[#2dd4a8]/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "0ms" }}
-                  />
-                  <span
-                    className="size-2 bg-[#2dd4a8]/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "150ms" }}
-                  />
-                  <span
-                    className="size-2 bg-[#2dd4a8]/60 rounded-full animate-bounce"
-                    style={{ animationDelay: "300ms" }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
-
-      {/* ── Input ── */}
-      <div className="shrink-0 border-t border-[#2dd4a8]/[0.08] bg-[#050a08]/80 backdrop-blur-xl">
-        <form onSubmit={handleSubmit} className="max-w-3xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-end gap-3 bg-[#2dd4a8]/[0.04] border border-[#2dd4a8]/[0.1] rounded-2xl px-4 py-3 focus-within:border-[#2dd4a8]/25 transition-colors">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={autoResize}
-              onKeyDown={handleKeyDown}
-              placeholder={`Tanyakan sesuatu kepada ${botName}...`}
-              disabled={loading}
-              rows={1}
-              className="flex-1 bg-transparent text-[#e8f0ec] placeholder-[#4a6b5c] focus:outline-none resize-none text-[15px] leading-relaxed max-h-40 disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="flex items-center justify-center size-10 shrink-0 rounded-xl bg-[#2dd4a8] text-[#050a08] disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#3ee0b5] transition-colors active:scale-95"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 12h14M12 5l7 7-7 7"
-                />
+              <svg className="w-4 h-4 text-[#6a8d7e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+
+            <Link
+              href="/"
+              className="flex items-center justify-center size-9 rounded-xl border border-white/[0.07] hover:bg-[#2dd4a8]/[0.06]"
+              aria-label="Back to home"
+            >
+              <svg className="w-4 h-4 text-[#6a8d7e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-xl bg-gradient-to-br from-[#2dd4a8]/20 to-[#2dd4a8]/5 border border-[#2dd4a8]/20 flex items-center justify-center">
+                <CrescentIcon className="w-5 h-5 text-[#2dd4a8]" />
+              </div>
+              <div>
+                <h1 className="font-[family-name:var(--font-playfair)] font-bold text-base leading-tight">{botName}</h1>
+                <p className="text-[10px] text-[#2dd4a8]/60">Memory aktif · History tersimpan</p>
+              </div>
+            </div>
           </div>
-          <p className="text-center text-[11px] text-[#2a3d33] mt-3">
-            Powered by HikmahAI &middot; Jawaban mungkin tidak selalu akurat, selalu verifikasi dengan ulama
-          </p>
-        </form>
+
+          <div className="flex items-center gap-1.5">
+            {showNameInput ? (
+              <input
+                type="text"
+                value={userName}
+                onChange={(e) => handleNameChange(e.target.value)}
+                onBlur={() => setShowNameInput(false)}
+                placeholder="Nama panggilan"
+                autoFocus
+                className="w-36 px-3 py-1.5 text-sm bg-[#2dd4a8]/[0.05] border border-[#2dd4a8]/[0.12] rounded-lg text-[#e8f0ec] placeholder-[#3a5a48] focus:outline-none"
+              />
+            ) : (
+              <button
+                onClick={() => setShowNameInput(true)}
+                className="text-xs text-[#3a5a48] hover:text-[#7a9d8e] px-2 py-1 rounded-lg hover:bg-white/[0.04]"
+              >
+                {userName || "Atur panggilan"}
+              </button>
+            )}
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto chat-scrollbar relative">
+          <div
+            className="absolute inset-0 opacity-[0.015] pointer-events-none"
+            style={{
+              backgroundImage: "radial-gradient(rgba(45,212,168,0.8) 1px, transparent 1px)",
+              backgroundSize: "32px 32px",
+            }}
+          />
+
+          <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-5">
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+                <p className="text-[#d4a72d]/65 text-xl mb-3 font-[family-name:var(--font-playfair)]">بِسْمِ اللَّهِ</p>
+                <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold mb-2 text-[#d4e8df]">
+                  Assalamu'alaikum, {userName || user.name || "Sahabat"}!
+                </h2>
+                <p className="text-[#4a6b5c] max-w-sm text-sm">
+                  Riwayat percakapan Anda tersimpan per akun. Lanjutkan percakapan lama dari sidebar kiri.
+                </p>
+              </div>
+            )}
+
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex items-end gap-2.5 ${message.role === "user" ? "flex-row-reverse" : "flex-row"} animate-fade-in`}
+              >
+                {message.role === "assistant" ? (
+                  <div className="size-8 rounded-xl bg-gradient-to-br from-[#2dd4a8]/15 to-[#2dd4a8]/5 border border-[#2dd4a8]/15 flex items-center justify-center shrink-0 mb-0.5">
+                    <CrescentIcon className="w-4 h-4 text-[#2dd4a8]" />
+                  </div>
+                ) : (
+                  <div className="size-8 rounded-xl bg-[#2dd4a8]/80 flex items-center justify-center shrink-0 mb-0.5 text-[#050a08] font-bold text-xs font-[family-name:var(--font-playfair)]">
+                    {(userName || user.name || user.email)[0]?.toUpperCase() || "U"}
+                  </div>
+                )}
+
+                <div
+                  className={`max-w-[78%] sm:max-w-[68%] ${
+                    message.role === "user"
+                      ? "bg-[#2dd4a8] text-[#050a08] rounded-2xl rounded-br-sm px-4 py-3"
+                      : "bg-[#0d1f18] border border-[#2dd4a8]/[0.1] rounded-2xl rounded-bl-sm px-4 py-3"
+                  }`}
+                >
+                  {message.role === "assistant" ? (
+                    <div className="text-[14.5px] leading-relaxed text-[#c7e9dc] break-words">
+                      {renderAssistantMarkdown(message.content)}
+                    </div>
+                  ) : (
+                    <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed font-medium break-words">
+                      {message.content}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {loading && (
+              <div className="flex items-end gap-2.5 animate-fade-in">
+                <div className="size-8 rounded-xl bg-gradient-to-br from-[#2dd4a8]/15 to-[#2dd4a8]/5 border border-[#2dd4a8]/15 flex items-center justify-center shrink-0">
+                  <CrescentIcon className="w-4 h-4 text-[#2dd4a8]" />
+                </div>
+                <div className="bg-[#0d1f18] border border-[#2dd4a8]/[0.1] rounded-2xl rounded-bl-sm px-5 py-4">
+                  <div className="flex items-center gap-1.5">
+                    {[0, 150, 300].map((delay) => (
+                      <span
+                        key={delay}
+                        className="size-1.5 bg-[#2dd4a8]/50 rounded-full animate-bounce"
+                        style={{ animationDelay: `${delay}ms` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        <div className="shrink-0 bg-[#050a08]/90 backdrop-blur-2xl">
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-[#2dd4a8]/10 to-transparent" />
+          <form onSubmit={handleSubmit} className="max-w-3xl mx-auto px-4 sm:px-6 pt-3 pb-4">
+            <div className="flex items-end gap-3 bg-[#0d1f18]/80 border border-[#2dd4a8]/[0.12] rounded-2xl px-4 py-3 focus-within:border-[#2dd4a8]/25 transition-all">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={autoResize}
+                onKeyDown={handleKeyDown}
+                placeholder={`Tanyakan kepada ${botName}...`}
+                disabled={loading}
+                rows={1}
+                className="flex-1 bg-transparent text-[#d4e8df] placeholder-[#3a5a48] focus:outline-none resize-none text-[14.5px] leading-relaxed max-h-40 disabled:opacity-40"
+              />
+              <button
+                type="submit"
+                disabled={loading || !input.trim()}
+                className="flex items-center justify-center size-9 shrink-0 rounded-xl bg-[#2dd4a8] text-[#050a08] disabled:opacity-25"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex items-center justify-between mt-2 px-1">
+              <p className="text-[10px] text-[#1e3328]">History tersimpan per akun Anda</p>
+              <p className="text-[10px] text-[#1e3328]">Enter kirim · Shift+Enter baris baru</p>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -61,7 +61,7 @@ export default async function DashboardPage() {
             </div>
             <div className="flex justify-between">
               <dt className="text-stone-500">Text Model</dt>
-              <dd className="text-stone-900 font-mono text-xs">{config?.textModel || "gpt-4.1-nano"}</dd>
+              <dd className="text-stone-900 font-mono text-xs">{config?.textModel || "gpt-5"}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-stone-500">Image Model</dt>
