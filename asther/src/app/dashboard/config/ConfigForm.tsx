@@ -251,6 +251,37 @@ export default function ConfigForm({ config, envBearerToken, envOpenaiApiKey, en
                 </p>
               </div>
             </div>
+
+            <div className="pt-2 border-t border-stone-100">
+              <label className={labelClass}>Guardrail Mode</label>
+              <select
+                name="guardrailLevel"
+                defaultValue={config?.guardrailLevel || "standar"}
+                className={selectClass}
+              >
+                <option value="standar">Standar</option>
+                <option value="ketat">Ketat</option>
+              </select>
+              <p className="text-stone-500 text-xs mt-1">
+                Guardrail diterapkan global untuk semua sesi chat dari dashboard admin.
+              </p>
+            </div>
+
+            <label className="flex items-start gap-2 pt-1">
+              <input
+                type="checkbox"
+                name="citationStrict"
+                value="true"
+                defaultChecked={config?.citationStrict || false}
+                className="mt-0.5 h-4 w-4 text-stone-900 bg-white border-stone-300 rounded focus:ring-stone-900"
+              />
+              <span className="text-sm text-stone-700">
+                Aktifkan strict citation mode
+                <span className="block text-xs text-stone-500 mt-0.5">
+                  Saat aktif, jawaban Islam yang butuh dalil hanya boleh mengacu pada sumber yang tersedia di knowledge base.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
 

@@ -8,6 +8,27 @@
       "when": 1769703195542,
       "tag": "0000_handy_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772246400000,
+      "tag": "0001_add_guardrail_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772247600000,
+      "tag": "0002_add_citation_strict",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1775211674096,
+      "tag": "0003_numerous_iron_fist",
+      "breakpoints": true
     }
   ]
 }

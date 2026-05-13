@@ -1,9 +1,9 @@
 import { headers } from "next/headers";
-import { db } from "@/lib/db";
+import { getAppConfig } from "@/lib/app-config";
 import ApiDocsClient from "./ApiDocsClient";
 
 export default async function ApiDocsPage() {
-  const config = await db.query.appConfig.findFirst();
+  const config = await getAppConfig();
   const headerList = await headers();
   const forwardedProto = headerList.get("x-forwarded-proto");
   const forwardedHost = headerList.get("x-forwarded-host");

@@ -57,6 +57,12 @@ export default async function DashboardLayout({
                 >
                   API Docs
                 </a>
+                <a
+                  href="/dashboard/evaluation"
+                  className="text-stone-600 hover:text-stone-900 hover:bg-stone-100 px-3 py-1.5 rounded-md text-sm font-medium"
+                >
+                  Evaluation
+                </a>
               </div>
             </div>
             <div className="flex items-center space-x-3">

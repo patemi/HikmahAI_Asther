@@ -1,0 +1,188 @@
+<h2>Chat interface layout — where users spend the most time</h2>
+<p class="subtitle">This is the /chat page for HikmahAI. Should carry the Islamic identity while being highly functional.</p>
+
+<div class="cards">
+
+  <!-- Option A: Full Immersive -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0C1B2A;padding:0;min-height:360px;overflow:hidden;font-family:Georgia,serif;position:relative;">
+      <!-- Geometric background pattern -->
+      <svg style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0.03;" viewBox="0 0 400 400">
+        <pattern id="chatgeo1" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
+          <polygon points="30,0 60,15 60,45 30,60 0,45 0,15" fill="none" stroke="#C9A84C" stroke-width="0.5"/>
+        </pattern>
+        <rect width="400" height="400" fill="url(#chatgeo1)"/>
+      </svg>
+      <div style="display:flex;height:360px;position:relative;z-index:1;">
+        <!-- Sidebar -->
+        <div style="width:240px;background:#0A1520;border-right:1px solid #C9A84C10;padding:12px;flex-shrink:0;">
+          <div style="padding:10px 12px;background:linear-gradient(135deg,#C9A84C,#A07D2E);color:#0C1B2A;font-size:11px;font-weight:600;border-radius:6px;text-align:center;margin-bottom:12px;">+ New Conversation</div>
+          <div style="font-size:9px;color:#C9A84C60;text-transform:uppercase;letter-spacing:1px;padding:8px 4px;">Recent</div>
+          <div style="padding:8px;border-radius:6px;background:#C9A84C08;border:1px solid #C9A84C15;margin-bottom:4px;">
+            <div style="font-size:11px;color:#E8DCC8;white-space:nowrap;overflow:hidden;">Hukum sholat tahajud...</div>
+            <div style="font-size:9px;color:#5A7080;margin-top:2px;">2 hours ago</div>
+          </div>
+          <div style="padding:8px;border-radius:6px;margin-bottom:4px;">
+            <div style="font-size:11px;color:#8A9BAE;white-space:nowrap;overflow:hidden;">Tafsir Al-Baqarah ayat 255</div>
+            <div style="font-size:9px;color:#5A7080;margin-top:2px;">Yesterday</div>
+          </div>
+          <div style="padding:8px;border-radius:6px;">
+            <div style="font-size:11px;color:#8A9BAE;white-space:nowrap;overflow:hidden;">Rukun Islam dan Iman</div>
+            <div style="font-size:9px;color:#5A7080;margin-top:2px;">3 days ago</div>
+          </div>
+        </div>
+        <!-- Chat area -->
+        <div style="flex:1;display:flex;flex-direction:column;">
+          <!-- Header -->
+          <div style="padding:12px 16px;border-bottom:1px solid #C9A84C08;display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="width:28px;height:28px;background:#C9A84C15;border:1px solid #C9A84C30;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#C9A84C;">☽</div>
+              <div>
+                <div style="font-size:12px;color:#E8DCC8;font-family:-apple-system,sans-serif;font-weight:500;">HikmahAI</div>
+                <div style="font-size:9px;color:#5A7080;">RAG aktif · Memory tersimpan</div>
+              </div>
+            </div>
+          </div>
+          <!-- Messages -->
+          <div style="flex:1;padding:16px;overflow:hidden;">
+            <div style="margin-bottom:16px;">
+              <div style="display:flex;gap:8px;align-items:flex-start;">
+                <div style="width:24px;height:24px;background:#C9A84C15;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#C9A84C;">☽</div>
+                <div style="background:#111E2C;border:1px solid #C9A84C08;padding:10px 14px;border-radius:2px 10px 10px 10px;max-width:85%;">
+                  <div style="font-size:11px;color:#B8C8D8;line-height:1.6;font-family:-apple-system,sans-serif;">Wa'alaikumussalam warahmatullahi wabarakatuh. Shalat tahajud hukumnya <span style="color:#C9A84C;">sunnah muakkadah</span>, artinya sangat dianjurkan...</div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+              <div style="background:#C9A84C;padding:10px 14px;border-radius:10px 2px 10px 10px;max-width:75%;">
+                <div style="font-size:11px;color:#0C1B2A;line-height:1.6;font-family:-apple-system,sans-serif;">Bagaimana tata cara sholat tahajud?</div>
+              </div>
+            </div>
+          </div>
+          <!-- Input -->
+          <div style="padding:12px 16px;border-top:1px solid #C9A84C08;">
+            <div style="display:flex;gap:8px;align-items:center;background:#0A1520;border:1px solid #C9A84C12;border-radius:10px;padding:10px 14px;">
+              <div style="flex:1;font-size:11px;color:#5A7080;font-family:-apple-system,sans-serif;">Tanyakan sesuatu...</div>
+              <div style="width:28px;height:28px;background:#C9A84C;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;color:#0C1B2A;">→</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Full Immersive Islamic</h3>
+      <p>Navy background with geometric patterns. Gold accents on sidebar, messages, and buttons. Sidebar with conversation history. The Islamic identity is <strong>always present</strong> — every element breathes the brand.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Clean with Islamic Header -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#080E17;padding:0;min-height:360px;overflow:hidden;font-family:-apple-system,system-ui,sans-serif;position:relative;">
+      <div style="display:flex;height:360px;">
+        <!-- Sidebar -->
+        <div style="width:240px;background:#0B1219;border-right:1px solid #1E293B;padding:12px;flex-shrink:0;">
+          <div style="padding:10px 12px;background:#1E293B;color:#E2E8F0;font-size:11px;font-weight:500;border-radius:8px;text-align:center;margin-bottom:12px;">+ New Chat</div>
+          <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:1px;padding:8px 4px;">Conversations</div>
+          <div style="padding:8px 10px;border-radius:6px;background:#1E293B50;margin-bottom:4px;">
+            <div style="font-size:11px;color:#E2E8F0;white-space:nowrap;overflow:hidden;">Hukum sholat tahajud...</div>
+            <div style="font-size:9px;color:#475569;margin-top:2px;">2 hours ago</div>
+          </div>
+          <div style="padding:8px 10px;border-radius:6px;margin-bottom:4px;">
+            <div style="font-size:11px;color:#94A3B8;white-space:nowrap;overflow:hidden;">Tafsir Al-Baqarah 255</div>
+            <div style="font-size:9px;color:#475569;margin-top:2px;">Yesterday</div>
+          </div>
+        </div>
+        <!-- Chat -->
+        <div style="flex:1;display:flex;flex-direction:column;">
+          <!-- Islamic header bar -->
+          <div style="padding:10px 16px;background:linear-gradient(135deg,#0C1B2A,#132A3A);border-bottom:1px solid #C9A84C15;display:flex;align-items:center;gap:10px;">
+            <div style="font-size:14px;color:#C9A84C;">☽</div>
+            <div>
+              <div style="font-size:13px;color:#E8DCC8;font-weight:500;font-family:Georgia,serif;">HikmahAI</div>
+              <div style="font-size:9px;color:#C9A84C60;">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ</div>
+            </div>
+          </div>
+          <!-- Messages (clean, no patterns) -->
+          <div style="flex:1;padding:16px;background:#080E17;">
+            <div style="margin-bottom:16px;display:flex;gap:8px;">
+              <div style="width:24px;height:24px;background:#1E293B;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:9px;color:#C9A84C;">☽</div>
+              <div style="background:#111827;border:1px solid #1E293B;padding:10px 14px;border-radius:2px 12px 12px 12px;max-width:85%;">
+                <div style="font-size:11px;color:#CBD5E1;line-height:1.6;">Wa'alaikumussalam. Shalat tahajud hukumnya <strong style="color:#E2E8F0;">sunnah muakkadah</strong>. Berikut penjelasannya...</div>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;margin-bottom:16px;">
+              <div style="background:#1E293B;padding:10px 14px;border-radius:12px 2px 12px 12px;max-width:75%;">
+                <div style="font-size:11px;color:#E2E8F0;line-height:1.6;">Bagaimana tata caranya?</div>
+              </div>
+            </div>
+          </div>
+          <!-- Input -->
+          <div style="padding:12px 16px;border-top:1px solid #1E293B;">
+            <div style="display:flex;gap:8px;align-items:center;background:#111827;border:1px solid #1E293B;border-radius:12px;padding:10px 14px;">
+              <div style="flex:1;font-size:11px;color:#475569;">Ask a question...</div>
+              <div style="width:28px;height:28px;background:#3B82F6;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12px;color:white;">→</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Clean Dark + Islamic Header</h3>
+      <p>Dark slate background, clean message bubbles. Islamic identity concentrated in the <strong>header bar only</strong> (crescent, bismillah, serif font). Message area stays functional and distraction-free. Best readability for long conversations.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Centered Focus (No Sidebar) -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0C1B2A;padding:0;min-height:360px;overflow:hidden;font-family:-apple-system,system-ui,sans-serif;position:relative;">
+      <!-- Subtle arch -->
+      <div style="position:absolute;top:30px;left:50%;transform:translateX(-50%);width:300px;height:400px;border:1px solid #C9A84C06;border-radius:150px 150px 0 0;"></div>
+      <div style="display:flex;flex-direction:column;height:360px;max-width:640px;margin:0 auto;position:relative;z-index:1;">
+        <!-- Minimal header -->
+        <div style="padding:14px 20px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div style="font-size:12px;color:#C9A84C;">☽</div>
+            <div style="font-size:13px;color:#E8DCC8;font-family:Georgia,serif;">HikmahAI</div>
+          </div>
+          <div style="font-size:10px;color:#5A7080;cursor:pointer;">History ▾</div>
+        </div>
+        <!-- Messages centered -->
+        <div style="flex:1;padding:8px 20px;overflow:hidden;">
+          <div style="margin-bottom:16px;">
+            <div style="font-size:9px;color:#5A7080;margin-bottom:4px;text-align:center;">HikmahAI</div>
+            <div style="background:#111E2C;border:1px solid #C9A84C08;padding:12px 16px;border-radius:12px;max-width:90%;margin:0 auto;">
+              <div style="font-size:11px;color:#B8C8D8;line-height:1.7;">Wa'alaikumussalam warahmatullahi wabarakatuh. Shalat tahajud hukumnya <span style="color:#C9A84C;">sunnah muakkadah</span>, yaitu sunnah yang sangat ditekankan oleh Rasulullah ﷺ.</div>
+              <div style="margin-top:8px;padding:8px;background:#C9A84C08;border-radius:6px;border-left:2px solid #C9A84C30;">
+                <div style="font-size:9px;color:#C9A84C80;margin-bottom:2px;">📖 Source</div>
+                <div style="font-size:10px;color:#8A9BAE;">Fiqh Sunnah — Sayyid Sabiq</div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-bottom:16px;">
+            <div style="font-size:9px;color:#5A7080;margin-bottom:4px;text-align:center;">You</div>
+            <div style="background:#1A2A3A;padding:12px 16px;border-radius:12px;max-width:80%;margin:0 auto;">
+              <div style="font-size:11px;color:#E8DCC8;line-height:1.6;">Bagaimana tata caranya?</div>
+            </div>
+          </div>
+        </div>
+        <!-- Input -->
+        <div style="padding:12px 20px 16px;">
+          <div style="display:flex;gap:8px;align-items:center;background:#111E2C;border:1px solid #C9A84C10;border-radius:14px;padding:12px 16px;">
+            <div style="flex:1;font-size:11px;color:#5A7080;">Tanyakan tentang Islam...</div>
+            <div style="width:30px;height:30px;background:linear-gradient(135deg,#C9A84C,#A07D2E);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;color:#0C1B2A;">→</div>
+          </div>
+          <div style="text-align:center;margin-top:6px;font-size:9px;color:#3A5060;">Citations · Standard depth · History saved</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Centered Focus (ChatGPT-style)</h3>
+      <p>No persistent sidebar — history accessible via dropdown. Messages centered in a narrow column with subtle arch backdrop. Inline citation cards. Like <strong>ChatGPT or Claude.ai</strong> but with Islamic navy/gold atmosphere. Maximum focus on the conversation.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="section" style="margin-top:24px;">
+  <p class="subtitle">This is for the public /chat page. The dashboard demo chat can follow a simpler style. Click your pick!</p>
+</div>

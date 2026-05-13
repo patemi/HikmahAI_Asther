@@ -1,7 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { createDocument, updateDocument, removeDocument } from "@/app/actions/knowledge";
+import {
+  createDocument,
+  updateDocument,
+  removeDocument,
+  reembedAllDocuments,
+} from "@/app/actions/knowledge";
 import type { KnowledgeDocument } from "@/lib/db/schema";
 
 interface KnowledgeClientProps {
@@ -61,6 +66,23 @@ export default function KnowledgeClient({ documents }: KnowledgeClientProps) {
     setLoading(false);
   }
 
+  async function handleReembedAll() {
+    if (!confirm("Re-embed semua dokumen sekarang? Proses ini bisa memakan waktu.")) return;
+
+    setLoading(true);
+    setMessage(null);
+
+    const result = await reembedAllDocuments();
+
+    if (result.error) {
+      setMessage({ type: "error", text: result.error });
+    } else {
+      setMessage({ type: "success", text: result.message || "Re-embed selesai." });
+    }
+
+    setLoading(false);
+  }
+
   const inputClass = "w-full px-3 py-2 bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent";
   const labelClass = "block text-sm font-medium text-stone-700 mb-1.5";
 
@@ -72,6 +94,13 @@ export default function KnowledgeClient({ documents }: KnowledgeClientProps) {
           <p className="text-stone-500 text-sm mt-1">Manage documents for RAG-powered responses</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={handleReembedAll}
+            disabled={loading || documents.length === 0}
+            className="px-4 py-2 border border-amber-300 text-amber-700 hover:text-amber-800 hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium rounded-md"
+          >
+            Re-embed All
+          </button>
           <a
             href="/dashboard/knowledge/upload"
             className="px-4 py-2 border border-stone-300 text-stone-700 hover:text-stone-900 hover:bg-stone-50 text-sm font-medium rounded-md"

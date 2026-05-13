@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { db } from "@/lib/db";
+import { getAppConfig } from "@/lib/app-config";
 
 let cachedClient: OpenAI | null = null;
 let cachedKey: string | null = null;
@@ -9,9 +9,7 @@ let cachedEmbeddingKey: string | null = null;
 let cachedEmbeddingBaseUrl: string | null = null;
 
 async function resolveClientConfig() {
-  const config = await db.query.appConfig.findFirst({
-    columns: { openaiApiKey: true, baseUrl: true },
-  });
+  const config = await getAppConfig();
 
   const apiKey =
     process.env.LLM_API_KEY ||
@@ -19,18 +17,35 @@ async function resolveClientConfig() {
     config?.openaiApiKey ||
     "";
   const baseUrl =
-    (process.env.BASE_URL || process.env.STRIX_BASE_URL || config?.baseUrl || "").trim();
+    (
+      process.env.LLM_API_BASE ||
+      process.env.BASE_URL ||
+      process.env.STRIX_BASE_URL ||
+      config?.baseUrl ||
+      ""
+    ).trim();
 
   return { apiKey, baseUrl };
 }
 
-function resolveEmbeddingConfig() {
+async function resolveEmbeddingConfig() {
+  const config = await getAppConfig();
+
   const apiKey =
     process.env.EMBEDDING_API_KEY ||
-    process.env.OPENAI_API_KEY ||
     process.env.LLM_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    config?.openaiApiKey ||
     "";
-  const baseUrl = (process.env.EMBEDDING_BASE_URL || "").trim();
+  const baseUrl =
+    (
+      process.env.EMBEDDING_BASE_URL ||
+      process.env.LLM_API_BASE ||
+      process.env.BASE_URL ||
+      process.env.STRIX_BASE_URL ||
+      config?.baseUrl ||
+      ""
+    ).trim();
 
   return { apiKey, baseUrl };
 }
@@ -47,17 +62,14 @@ async function getOpenAIClient() {
     cachedClient = new OpenAI({
       apiKey,
       baseURL: baseUrl || undefined,
-      defaultHeaders: {
-        "x-api-key": apiKey,
-      },
     });
   }
 
   return cachedClient;
 }
 
-function getEmbeddingClient() {
-  const { apiKey, baseUrl } = resolveEmbeddingConfig();
+async function getEmbeddingClient() {
+  const { apiKey, baseUrl } = await resolveEmbeddingConfig();
   if (!apiKey) {
     throw new Error("Embedding API key is not set");
   }
@@ -90,7 +102,7 @@ export async function generateEmbedding(
   text: string,
   model: string = MODELS.EMBEDDING
 ): Promise<number[]> {
-  const openai = getEmbeddingClient();
+  const openai = await getEmbeddingClient();
   const response = await openai.embeddings.create({
     model,
     input: text,

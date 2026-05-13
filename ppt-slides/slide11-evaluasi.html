@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body { width: 720pt; height: 405pt; margin: 0; padding: 0; background: #0C111D; font-family: Arial, sans-serif; position: relative; }
+.content { position: absolute; top: 40pt; left: 90pt; right: 90pt; display: flex; gap: 30pt; }
+.left { flex: 3; }
+.right { flex: 2; }
+.metrics { display: flex; gap: 12pt; margin-top: 12pt; margin-bottom: 6pt; }
+.metric { flex: 1; text-align: center; padding-bottom: 6pt; border-bottom: 2pt solid #1F2937; }
+.result { display: flex; justify-content: space-between; align-items: center; padding: 7pt 0; border-bottom: 1pt solid #1F2937; }
+.footer { position: absolute; bottom: 20pt; right: 90pt; }
+</style>
+</head>
+<body>
+<div class="content">
+  <div class="left">
+    <p style="color: #3B82F6; font-size: 8pt; letter-spacing: 3pt;">08</p>
+    <h1 style="color: #FFFFFF; font-size: 20pt; font-weight: bold; margin-top: 6pt;">Evaluasi Performa</h1>
+    <div class="metrics">
+      <div class="metric" style="border-color: #10B981;">
+        <p style="color: #10B981; font-size: 24pt; font-weight: bold;">100%</p>
+        <p style="color: #6B7280; font-size: 7pt; margin-top: 2pt;">Precision</p>
+      </div>
+      <div class="metric" style="border-color: #10B981;">
+        <p style="color: #10B981; font-size: 24pt; font-weight: bold;">100%</p>
+        <p style="color: #6B7280; font-size: 7pt; margin-top: 2pt;">Recall</p>
+      </div>
+      <div class="metric" style="border-color: #F59E0B;">
+        <p style="color: #F59E0B; font-size: 24pt; font-weight: bold;">100%</p>
+        <p style="color: #6B7280; font-size: 7pt; margin-top: 2pt;">F1-Score</p>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric" style="border-color: #3B82F6;">
+        <p style="color: #3B82F6; font-size: 24pt; font-weight: bold;">86.2%</p>
+        <p style="color: #6B7280; font-size: 7pt; margin-top: 2pt;">Avg Relevance</p>
+      </div>
+      <div class="metric" style="border-color: #3B82F6;">
+        <p style="color: #3B82F6; font-size: 24pt; font-weight: bold;">86.2%</p>
+        <p style="color: #6B7280; font-size: 7pt; margin-top: 2pt;">Avg Accuracy</p>
+      </div>
+    </div>
+    <div id="eval-chart" class="placeholder" style="width: 260pt; height: 90pt; background: #111827; border-radius: 4pt; margin-top: 6pt;"></div>
+  </div>
+  <div class="right" style="padding-top: 42pt;">
+    <p style="color: #6B7280; font-size: 7pt; letter-spacing: 2pt; margin-bottom: 8pt;">PER CATEGORY</p>
+    <div class="result">
+      <div><p style="color: #3B82F6; font-size: 8pt; font-weight: bold;">QURAN</p><p style="color: #4B5563; font-size: 6pt;">"Surah pertama turun?"</p></div>
+      <p style="color: #FFFFFF; font-size: 14pt; font-weight: bold;">89.1%</p>
+    </div>
+    <div class="result">
+      <div><p style="color: #F59E0B; font-size: 8pt; font-weight: bold;">FIQH</p><p style="color: #4B5563; font-size: 6pt;">"Hukum bunuh perampok?"</p></div>
+      <p style="color: #FFFFFF; font-size: 14pt; font-weight: bold;">70.9%</p>
+    </div>
+    <div class="result" style="border-bottom: none;">
+      <div><p style="color: #10B981; font-size: 8pt; font-weight: bold;">AQIDAH</p><p style="color: #4B5563; font-size: 6pt;">"Kenapa Islam sempurna?"</p></div>
+      <p style="color: #FFFFFF; font-size: 14pt; font-weight: bold;">98.6%</p>
+    </div>
+    <div style="margin-top: 12pt;">
+      <p style="color: #F59E0B; font-size: 7pt; font-weight: bold;">KEY FINDING</p>
+      <p style="color: #6B7280; font-size: 6.5pt; margin-top: 3pt; line-height: 1.4;">Perfect retrieval (P=R=F1=100%). Relevance-Accuracy correlation identical: zero hallucination detected.</p>
+    </div>
+  </div>
+</div>
+<div class="footer"><p style="color: #374151; font-size: 7pt;">11</p></div>
+</body>
+</html>

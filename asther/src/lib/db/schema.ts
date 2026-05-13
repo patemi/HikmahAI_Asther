@@ -45,6 +45,8 @@ export const appConfig = pgTable("app_config", {
   ragTopK: integer("rag_top_k").default(5).notNull(),
   ragMinScore: integer("rag_min_score").default(70).notNull(), // Percentage
   memoryLength: integer("memory_length").default(5).notNull(), // Number of message pairs to include as context
+  guardrailLevel: text("guardrail_level").default("standar").notNull(), // standar | ketat
+  citationStrict: boolean("citation_strict").default(false).notNull(),
   // Timestamps
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -122,6 +124,67 @@ export const knowledgeChunks = pgTable(
   ]
 );
 
+// Evaluation test cases for RAG metrics
+export const evaluationTestCases = pgTable("evaluation_test_cases", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  query: text("query").notNull(),
+  expectedDocumentIds: jsonb("expected_document_ids").$type<string[]>().default([]),
+  expectedTopics: jsonb("expected_topics").$type<string[]>().default([]),
+  category: text("category"), // e.g. "quran", "hadith", "fiqh", "history"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Evaluation run results
+export const evaluationRuns = pgTable("evaluation_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name"),
+  totalQueries: integer("total_queries").notNull(),
+  // Aggregate metrics (0-1 scale)
+  avgPrecision: text("avg_precision").notNull(), // stored as string to avoid float issues
+  avgRecall: text("avg_recall").notNull(),
+  avgF1Score: text("avg_f1_score").notNull(),
+  avgRelevanceScore: text("avg_relevance_score").notNull(),
+  avgAccuracy: text("avg_accuracy").notNull(),
+  // Config snapshot
+  configSnapshot: jsonb("config_snapshot"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Individual query results within an evaluation run
+export const evaluationQueryResults = pgTable(
+  "evaluation_query_results",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    runId: uuid("run_id")
+      .references(() => evaluationRuns.id, { onDelete: "cascade" })
+      .notNull(),
+    query: text("query").notNull(),
+    category: text("category"),
+    // Per-query metrics
+    precision: text("precision").notNull(),
+    recall: text("recall").notNull(),
+    f1Score: text("f1_score").notNull(),
+    relevanceScore: text("relevance_score").notNull(),
+    accuracy: text("accuracy").notNull(),
+    // Details
+    retrievedChunks: integer("retrieved_chunks").notNull(),
+    relevantChunks: integer("relevant_chunks").notNull(),
+    totalExpectedRelevant: integer("total_expected_relevant"),
+    chunkDetails: jsonb("chunk_details").$type<Array<{
+      chunkId: string;
+      documentTitle: string;
+      similarity: number;
+      llmRelevanceRating: number; // 0-1 from LLM judge
+      isRelevant: boolean;
+    }>>(),
+    llmAccuracyRating: text("llm_accuracy_rating"), // LLM judge explanation
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("eval_query_results_run_idx").on(table.runId),
+  ]
+);
+
 // Sessions for dashboard authentication
 export const sessions = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -147,3 +210,9 @@ export type KnowledgeChunk = typeof knowledgeChunks.$inferSelect;
 export type NewKnowledgeChunk = typeof knowledgeChunks.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
 export type NewSession = typeof sessions.$inferInsert;
+export type EvaluationTestCase = typeof evaluationTestCases.$inferSelect;
+export type NewEvaluationTestCase = typeof evaluationTestCases.$inferInsert;
+export type EvaluationRun = typeof evaluationRuns.$inferSelect;
+export type NewEvaluationRun = typeof evaluationRuns.$inferInsert;
+export type EvaluationQueryResult = typeof evaluationQueryResults.$inferSelect;
+export type NewEvaluationQueryResult = typeof evaluationQueryResults.$inferInsert;

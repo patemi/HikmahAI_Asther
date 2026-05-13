@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body { width: 720pt; height: 405pt; margin: 0; padding: 0; background: #0C111D; font-family: Arial, sans-serif; position: relative; }
+.content { position: absolute; top: 40pt; left: 90pt; right: 90pt; }
+.cols { display: flex; gap: 40pt; margin-top: 14pt; }
+.col { flex: 1; }
+.step { padding: 8pt 0; border-bottom: 1pt solid #1F2937; display: flex; gap: 10pt; align-items: flex-start; }
+.num { color: #3B82F6; font-size: 12pt; font-weight: bold; width: 18pt; flex-shrink: 0; }
+.tech-row { padding: 7pt 0; border-bottom: 1pt solid #1F2937; display: flex; justify-content: space-between; }
+.footer { position: absolute; bottom: 20pt; right: 90pt; }
+</style>
+</head>
+<body>
+<div class="content">
+  <p style="color: #3B82F6; font-size: 8pt; letter-spacing: 3pt;">03</p>
+  <h1 style="color: #FFFFFF; font-size: 20pt; font-weight: bold; margin-top: 6pt;">Metode Penelitian</h1>
+  <div class="cols">
+    <div class="col">
+      <p style="color: #6B7280; font-size: 7pt; letter-spacing: 2pt; margin-bottom: 6pt;">TAHAPAN</p>
+      <div class="step"><p class="num">1</p><div><p style="color: #FFFFFF; font-size: 8pt; font-weight: bold;">Analisis Kebutuhan</p><p style="color: #6B7280; font-size: 7pt;">Identifikasi domain dan fitur</p></div></div>
+      <div class="step"><p class="num">2</p><div><p style="color: #FFFFFF; font-size: 8pt; font-weight: bold;">Perancangan Arsitektur</p><p style="color: #6B7280; font-size: 7pt;">Modular full-stack</p></div></div>
+      <div class="step"><p class="num">3</p><div><p style="color: #FFFFFF; font-size: 8pt; font-weight: bold;">Implementasi Sistem</p><p style="color: #6B7280; font-size: 7pt;">Frontend, backend, RAG, dashboard</p></div></div>
+      <div class="step" style="border-bottom: none;"><p class="num">4</p><div><p style="color: #FFFFFF; font-size: 8pt; font-weight: bold;">Pengujian & Evaluasi</p><p style="color: #6B7280; font-size: 7pt;">Metrik RAG + validasi ahli</p></div></div>
+    </div>
+    <div class="col">
+      <p style="color: #6B7280; font-size: 7pt; letter-spacing: 2pt; margin-bottom: 6pt;">STACK</p>
+      <div class="tech-row"><p style="color: #6B7280; font-size: 7.5pt;">Framework</p><p style="color: #FFFFFF; font-size: 7.5pt; font-weight: bold;">Next.js 15</p></div>
+      <div class="tech-row"><p style="color: #6B7280; font-size: 7.5pt;">Language</p><p style="color: #FFFFFF; font-size: 7.5pt; font-weight: bold;">TypeScript</p></div>
+      <div class="tech-row"><p style="color: #6B7280; font-size: 7.5pt;">Database</p><p style="color: #3B82F6; font-size: 7.5pt; font-weight: bold;">PostgreSQL + pgvector</p></div>
+      <div class="tech-row"><p style="color: #6B7280; font-size: 7.5pt;">ORM</p><p style="color: #FFFFFF; font-size: 7.5pt; font-weight: bold;">Drizzle ORM</p></div>
+      <div class="tech-row"><p style="color: #6B7280; font-size: 7.5pt;">AI</p><p style="color: #F59E0B; font-size: 7.5pt; font-weight: bold;">OpenAI GPT-4.1</p></div>
+      <div class="tech-row" style="border-bottom: none;"><p style="color: #6B7280; font-size: 7.5pt;">Deploy</p><p style="color: #FFFFFF; font-size: 7.5pt; font-weight: bold;">Docker Compose</p></div>
+    </div>
+  </div>
+</div>
+<div class="footer"><p style="color: #374151; font-size: 7pt;">05</p></div>
+</body>
+</html>

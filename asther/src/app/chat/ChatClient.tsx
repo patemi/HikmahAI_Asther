@@ -6,8 +6,17 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 interface Message {
+  id: string;
   role: "user" | "assistant";
   content: string;
+  citations?: CitationItem[];
+  citationNotice?: string;
+}
+
+interface CitationItem {
+  title: string;
+  source?: string | null;
+  score?: number;
 }
 
 interface ConversationItem {
@@ -40,6 +49,10 @@ function createConversationId() {
   return `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function createMessageId() {
+  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function ChatClient({ botName, user }: ChatClientProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -47,6 +60,9 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
   const [participantId, setParticipantId] = useState("");
   const [userName, setUserName] = useState(user.name || user.email.split("@")[0] || "");
   const [showNameInput, setShowNameInput] = useState(false);
+  const [responseDepth, setResponseDepth] = useState<"ringkas" | "standar" | "mendalam">("standar");
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [showCitations, setShowCitations] = useState(true);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -72,7 +88,12 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
       if (!response.ok) return;
       const data = await response.json();
 
-      setMessages(data.messages || []);
+      setMessages(
+        (data.messages || []).map((msg: Omit<Message, "id">, index: number) => ({
+          ...msg,
+          id: createMessageId() + `-${index}`,
+        }))
+      );
       if (data?.participant?.nickname) {
         setUserName(data.participant.nickname);
       }
@@ -103,13 +124,19 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    const handler = () => setModeMenuOpen(false);
+    window.addEventListener("click", handler);
+    return () => window.removeEventListener("click", handler);
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || loading || !participantId) return;
 
     const userMessage = input.trim();
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setMessages((prev) => [...prev, { id: createMessageId(), role: "user", content: userMessage }]);
     setLoading(true);
 
     if (inputRef.current) inputRef.current.style.height = "auto";
@@ -125,6 +152,8 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
           message: userMessage,
           userName: userName || undefined,
           saveHistory: true,
+          responseDepth,
+          includeCitations: showCitations,
         }),
       });
 
@@ -133,7 +162,18 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
         return;
       }
 
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        let backendMessage = `HTTP ${response.status}`;
+        try {
+          const data = await response.json();
+          if (data?.error && typeof data.error === "string") {
+            backendMessage = data.error;
+          }
+        } catch {
+          // ignore json parse failure
+        }
+        throw new Error(backendMessage);
+      }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error("No reader");
@@ -141,8 +181,11 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
       const decoder = new TextDecoder("utf-8");
       let assistantMessage = "";
       let sseBuffer = "";
+      let pendingCitations: CitationItem[] | null = null;
+      let pendingCitationNotice: string | null = null;
+      const assistantMessageId = createMessageId();
 
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+      setMessages((prev) => [...prev, { id: assistantMessageId, role: "assistant", content: "" }]);
 
       while (true) {
         const { done, value } = await reader.read();
@@ -160,15 +203,51 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
             if (data === "[DONE]") continue;
 
             try {
-              const { content } = JSON.parse(data);
-              if (!content) continue;
+              const payload = JSON.parse(data) as {
+                type?: string;
+                content?: string;
+                citations?: CitationItem[];
+                notice?: string;
+              };
 
-              assistantMessage += content;
+              if (payload.type === "citations" && Array.isArray(payload.citations)) {
+                pendingCitations = payload.citations;
+                if (typeof payload.notice === "string") {
+                  pendingCitationNotice = payload.notice;
+                }
+
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const targetIndex = updated.findIndex((msg) => msg.id === assistantMessageId);
+                  if (targetIndex === -1) return prev;
+
+                  const target = updated[targetIndex];
+
+                  updated[targetIndex] = {
+                    ...target,
+                    citations: payload.citations,
+                    citationNotice: pendingCitationNotice || target.citationNotice,
+                  };
+                  return updated;
+                });
+                continue;
+              }
+
+              if (!payload.content) continue;
+
+              assistantMessage += payload.content;
               setMessages((prev) => {
                 const updated = [...prev];
-                updated[updated.length - 1] = {
-                  role: "assistant",
+                const targetIndex = updated.findIndex((msg) => msg.id === assistantMessageId);
+                if (targetIndex === -1) return prev;
+
+                const target = updated[targetIndex];
+
+                updated[targetIndex] = {
+                  ...target,
                   content: assistantMessage,
+                  citations: pendingCitations ?? target.citations,
+                  citationNotice: pendingCitationNotice || target.citationNotice,
                 };
                 return updated;
               });
@@ -179,15 +258,35 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
         }
       }
 
+      setMessages((prev) => {
+        const updated = [...prev];
+        const targetIndex = updated.findIndex((msg) => msg.id === assistantMessageId);
+        if (targetIndex === -1) return prev;
+
+        const target = updated[targetIndex];
+        updated[targetIndex] = {
+          ...target,
+          citations: pendingCitations ?? target.citations,
+          citationNotice: pendingCitationNotice || target.citationNotice,
+        };
+
+        return updated;
+      });
+
       decoder.decode();
       await loadConversations();
     } catch (error) {
       console.error("Chat error:", error);
+      const message =
+        error instanceof Error && error.message
+          ? `Maaf, terjadi kesalahan saat memproses pesan Anda: ${error.message}`
+          : "Maaf, terjadi kesalahan saat memproses pesan Anda. Silakan coba lagi.";
       setMessages((prev) => [
         ...prev,
         {
+          id: createMessageId(),
           role: "assistant",
-          content: "Maaf, terjadi kesalahan saat memproses pesan Anda. Silakan coba lagi.",
+          content: message,
         },
       ]);
     } finally {
@@ -270,6 +369,18 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
         {content}
       </ReactMarkdown>
     );
+  }
+
+  function modeLabel(mode: "ringkas" | "standar" | "mendalam") {
+    if (mode === "ringkas") return "Cepat";
+    if (mode === "mendalam") return "Pro";
+    return "Standar";
+  }
+
+  function modeDesc(mode: "ringkas" | "standar" | "mendalam") {
+    if (mode === "ringkas") return "Jawaban singkat dan langsung.";
+    if (mode === "mendalam") return "Analisis lebih detail dan bernuansa.";
+    return "Seimbang antara ringkas dan detail.";
   }
 
   return (
@@ -400,9 +511,9 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
               </div>
             )}
 
-            {messages.map((message, index) => (
+            {messages.map((message) => (
               <div
-                key={index}
+                key={message.id}
                 className={`flex items-end gap-2.5 ${message.role === "user" ? "flex-row-reverse" : "flex-row"} animate-fade-in`}
               >
                 {message.role === "assistant" ? (
@@ -425,6 +536,46 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
                   {message.role === "assistant" ? (
                     <div className="text-[14.5px] leading-relaxed text-[#c7e9dc] break-words">
                       {renderAssistantMarkdown(message.content)}
+
+                      {showCitations && Array.isArray(message.citations) && message.citations.length > 0 && (
+                        <div className="mt-3 rounded-2xl border border-white/[0.08] bg-[#0b1713] overflow-hidden">
+                          <div className="px-3 py-2 border-b border-white/[0.06] flex items-center justify-between">
+                            <p className="text-[10px] uppercase tracking-widest text-[#84b8a3]">Sumber Referensi</p>
+                            <span className="text-[10px] text-[#5e8977]">{message.citations.length} dokumen</span>
+                          </div>
+                          <div className="p-2 space-y-1.5">
+                            {message.citations.map((citation, idx) => {
+                              const relevance = typeof citation.score === "number" ? Math.round(citation.score * 100) : null;
+                              return (
+                                <div
+                                  key={`${citation.title}-${idx}`}
+                                  className="rounded-xl border border-white/[0.05] bg-[#0f1d18] px-3 py-2"
+                                >
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-[11px] font-medium text-[#d3ebe1] leading-relaxed">
+                                      {idx + 1}. {citation.title}
+                                    </p>
+                                    {relevance !== null ? (
+                                      <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-[#2dd4a8]/15 text-[#9de6cf]">
+                                        {relevance}%
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                  {citation.source ? (
+                                    <p className="text-[10px] text-[#6f9e8b] mt-1 truncate">{citation.source}</p>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {showCitations && (!message.citations || message.citations.length === 0) && message.citationNotice ? (
+                        <div className="mt-3 rounded-xl border border-white/[0.08] bg-[#0b1713] px-3 py-2">
+                          <p className="text-[11px] text-[#78a894] leading-relaxed">{message.citationNotice}</p>
+                        </div>
+                      ) : null}
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed font-medium break-words">
@@ -484,7 +635,52 @@ export default function ChatClient({ botName, user }: ChatClientProps) {
             </div>
             <div className="flex items-center justify-between mt-2 px-1">
               <p className="text-[10px] text-[#1e3328]">History tersimpan per akun Anda</p>
-              <p className="text-[10px] text-[#1e3328]">Enter kirim · Shift+Enter baris baru</p>
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] text-[#365446] px-2.5 py-1 rounded-full border border-white/[0.05] bg-[#0d1f18]/50 flex items-center gap-2">
+                  <span>Sitasi</span>
+                  <input
+                    type="checkbox"
+                    checked={showCitations}
+                    onChange={(e) => setShowCitations(e.target.checked)}
+                    disabled={loading}
+                    className="accent-[#2dd4a8]"
+                  />
+                </label>
+
+                <div className="relative" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => setModeMenuOpen((v) => !v)}
+                    className="text-[11px] text-[#9dcfbf] px-3 py-1.5 rounded-full border border-white/[0.08] bg-[#0d1f18]/60 hover:bg-[#12261f] flex items-center gap-1.5"
+                  >
+                    {modeLabel(responseDepth)}
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {modeMenuOpen && (
+                    <div className="absolute right-0 bottom-10 w-56 rounded-2xl border border-white/[0.08] bg-[#101d18] shadow-2xl p-1.5 z-20">
+                      {(["ringkas", "standar", "mendalam"] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => {
+                            setResponseDepth(mode);
+                            setModeMenuOpen(false);
+                          }}
+                          className={`w-full text-left rounded-xl px-3 py-2.5 transition-colors ${
+                            responseDepth === mode ? "bg-[#2dd4a8]/15" : "hover:bg-white/[0.04]"
+                          }`}
+                        >
+                          <p className="text-[12px] font-medium text-[#d5ede2]">{modeLabel(mode)}</p>
+                          <p className="text-[10px] text-[#73a08d] mt-0.5">{modeDesc(mode)}</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </form>
         </div>

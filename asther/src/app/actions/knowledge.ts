@@ -1,7 +1,7 @@
 "use server";
 
 import { db, schema } from "@/lib/db";
-import { addDocument, deleteDocument } from "@/lib/rag";
+import { addDocument, deleteDocument, rebuildDocumentChunks } from "@/lib/rag";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -244,16 +244,7 @@ export async function updateDocument(formData: FormData) {
       .delete(schema.knowledgeChunks)
       .where(eq(schema.knowledgeChunks.documentId, documentId));
 
-    // Chunk the new content
-    const chunks = chunkText(content, 500, 50);
-
-    for (let i = 0; i < chunks.length; i++) {
-      await db.insert(schema.knowledgeChunks).values({
-        documentId,
-        content: chunks[i],
-        chunkIndex: i,
-      });
-    }
+    await rebuildDocumentChunks(documentId, content);
 
     revalidatePath("/dashboard/knowledge");
     return { success: true };
@@ -261,28 +252,6 @@ export async function updateDocument(formData: FormData) {
     console.error("Update document error:", error);
     return { error: "Failed to update document" };
   }
-}
-
-function chunkText(text: string, maxChunkSize: number, overlap: number): string[] {
-  const chunks: string[] = [];
-  const paragraphs = text.split(/\n\n+/);
-
-  let currentChunk = "";
-
-  for (const para of paragraphs) {
-    if (currentChunk.length + para.length > maxChunkSize && currentChunk) {
-      chunks.push(currentChunk.trim());
-      const words = currentChunk.split(" ");
-      currentChunk = words.slice(-Math.ceil(overlap / 5)).join(" ") + "\n\n";
-    }
-    currentChunk += para + "\n\n";
-  }
-
-  if (currentChunk.trim()) {
-    chunks.push(currentChunk.trim());
-  }
-
-  return chunks;
 }
 
 export async function removeDocument(documentId: string) {
@@ -293,5 +262,47 @@ export async function removeDocument(documentId: string) {
   } catch (error) {
     console.error("Delete document error:", error);
     return { error: "Failed to delete document" };
+  }
+}
+
+export async function reembedAllDocuments() {
+  try {
+    const documents = await db.query.knowledgeDocuments.findMany();
+
+    if (documents.length === 0) {
+      return { success: true, processed: 0, message: "No documents to re-embed." };
+    }
+
+    let processed = 0;
+    let failed = 0;
+
+    for (const doc of documents) {
+      try {
+        await db
+          .delete(schema.knowledgeChunks)
+          .where(eq(schema.knowledgeChunks.documentId, doc.id));
+
+        await rebuildDocumentChunks(doc.id, doc.content);
+        processed++;
+      } catch (error) {
+        failed++;
+        console.error(`Re-embed failed for document ${doc.id}:`, error);
+      }
+    }
+
+    revalidatePath("/dashboard/knowledge");
+
+    return {
+      success: true,
+      processed,
+      failed,
+      message:
+        failed > 0
+          ? `Re-embed selesai: ${processed} berhasil, ${failed} gagal.`
+          : `Re-embed selesai: ${processed} dokumen berhasil diproses.`,
+    };
+  } catch (error) {
+    console.error("Re-embed all documents error:", error);
+    return { error: "Failed to re-embed documents" };
   }
 }

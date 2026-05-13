@@ -1,4 +1,5 @@
 import { db, schema } from "@/lib/db";
+import { getAppConfig } from "@/lib/app-config";
 import { sql } from "drizzle-orm";
 
 export default async function DashboardPage() {
@@ -15,7 +16,7 @@ export default async function DashboardPage() {
     .select({ count: sql<number>`count(*)` })
     .from(schema.knowledgeDocuments);
 
-  const config = await db.query.appConfig.findFirst();
+  const config = await getAppConfig();
 
   return (
     <div>

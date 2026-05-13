@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Gambar 1. Metode Waterfall</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Times New Roman', Times, serif;
+    background: #ffffff;
+    padding: 40px;
+    display: flex;
+    justify-content: center;
+  }
+  .figure {
+    max-width: 1100px;
+    width: 100%;
+  }
+  .caption {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 14px;
+    font-weight: bold;
+    color: #1a1a1a;
+  }
+  svg { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+  <div class="figure">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 620" width="100%">
+      <defs>
+        <!-- Gradient for phase boxes -->
+        <linearGradient id="phaseGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#10b981"/>
+          <stop offset="100%" stop-color="#047857"/>
+        </linearGradient>
+
+        <!-- Drop shadow -->
+        <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="2" dy="3" stdDeviation="3" flood-opacity="0.18"/>
+        </filter>
+
+        <!-- Forward arrow marker -->
+        <marker id="arrowFwd" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#047857"/>
+        </marker>
+
+        <!-- Iteration (back) arrow marker -->
+        <marker id="arrowBack" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+
+      <!-- Background subtle grid feel -->
+      <rect x="0" y="0" width="1100" height="620" fill="#fafaf9"/>
+
+      <!-- Phase 1: Analisis Kebutuhan -->
+      <g filter="url(#shadow)">
+        <rect x="40"  y="60"  width="240" height="80" rx="10" ry="10"
+              fill="url(#phaseGrad)" stroke="#065f46" stroke-width="1.5"/>
+        <text x="160" y="92"  text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+          Fase 1
+        </text>
+        <text x="160" y="115" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="15" font-weight="bold">
+          Analisis Kebutuhan
+        </text>
+      </g>
+      <text x="160" y="160" text-anchor="middle" fill="#334155"
+            font-family="Arial, sans-serif" font-size="11">
+        Pengumpulan dataset Al-Qur'an &amp; Hadist,
+      </text>
+      <text x="160" y="175" text-anchor="middle" fill="#334155"
+            font-family="Arial, sans-serif" font-size="11">
+        analisis kebutuhan fungsional &amp; non-fungsional
+      </text>
+
+      <!-- Phase 2: Perancangan -->
+      <g filter="url(#shadow)">
+        <rect x="240" y="170" width="240" height="80" rx="10" ry="10"
+              fill="url(#phaseGrad)" stroke="#065f46" stroke-width="1.5"/>
+        <text x="360" y="202" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+          Fase 2
+        </text>
+        <text x="360" y="225" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="15" font-weight="bold">
+          Perancangan
+        </text>
+      </g>
+      <text x="360" y="270" text-anchor="middle" fill="#334155"
+            font-family="Arial, sans-serif" font-size="11">
+        Use Case Diagram &amp; Activity Diagram
+      </text>
+      <text x="360" y="285" text-anchor="middle" fill="#334155"
+            font-family="Arial, sans-serif" font-size="11">
+        untuk merancang alur sistem
+      </text>
+
+      <!-- Phase 3: Pemrograman -->
+      <g filter="url(#shadow)">
+        <rect x="430" y="280" width="240" height="80" rx="10" ry="10"
+              fill="url(#phaseGrad)" stroke="#065f46" stroke-width="1.5"/>
+        <text x="550" y="312" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+          Fase 3
+        </text>
+        <text x="550" y="335" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="15" font-weight="bold">
+          Pemrograman
+        </text>
+      </g>
+      <text x="550" y="380" text-anchor="middle" fill="#334155"
+            font-family="Arial, sans-serif" font-size="11">
+        Implementasi sistem (Next.js, OpenAI API,
+      </text>
+      <text x="550" y="395" text-anchor="middle" fill="#334155"
+            font-family="Arial, sans-serif" font-size="11">
+        RAG Hybrid Search, PostgreSQL + pgvector)
+      </text>
+
+      <!-- Phase 4: Pengujian -->
+      <g filter="url(#shadow)">
+        <rect x="620" y="390" width="240" height="80" rx="10" ry="10"
+              fill="url(#phaseGrad)" stroke="#065f46" stroke-width="1.5"/>
+        <text x="740" y="422" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+          Fase 4
+        </text>
+        <text x="740" y="445" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="15" font-weight="bold">
+          Pengujian
+        </text>
+      </g>
+      <text x="740" y="490" text-anchor="middle" fill="#334155"
+            font-family="Arial, sans-serif" font-size="11">
+        Evaluation Metrics (accuracy, precision,
+      </text>
+      <text x="740" y="505" text-anchor="middle" fill="#334155"
+            font-family="Arial, sans-serif" font-size="11">
+        recall, F1-score) &amp; Pengujian Ahli
+      </text>
+
+      <!-- Phase 5: Pengelolaan & Pemeliharaan -->
+      <g filter="url(#shadow)">
+        <rect x="810" y="500" width="250" height="80" rx="10" ry="10"
+              fill="url(#phaseGrad)" stroke="#065f46" stroke-width="1.5"/>
+        <text x="935" y="528" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="16" font-weight="bold">
+          Fase 5
+        </text>
+        <text x="935" y="548" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="13" font-weight="bold">
+          Pengelolaan &amp;
+        </text>
+        <text x="935" y="565" text-anchor="middle" fill="#ffffff"
+              font-family="Arial, sans-serif" font-size="13" font-weight="bold">
+          Pemeliharaan
+        </text>
+      </g>
+
+      <!-- Forward arrows (waterfall flow) -->
+      <!-- 1 -> 2 -->
+      <line x1="280" y1="140" x2="300" y2="170"
+            stroke="#047857" stroke-width="2.5" marker-end="url(#arrowFwd)"/>
+      <!-- 2 -> 3 -->
+      <line x1="480" y1="250" x2="500" y2="280"
+            stroke="#047857" stroke-width="2.5" marker-end="url(#arrowFwd)"/>
+      <!-- 3 -> 4 -->
+      <line x1="670" y1="360" x2="690" y2="390"
+            stroke="#047857" stroke-width="2.5" marker-end="url(#arrowFwd)"/>
+      <!-- 4 -> 5 -->
+      <line x1="860" y1="470" x2="880" y2="500"
+            stroke="#047857" stroke-width="2.5" marker-end="url(#arrowFwd)"/>
+
+      <!-- Backward (iteration) arrows - dashed gray -->
+      <line x1="300" y1="180" x2="280" y2="150"
+            stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"
+            marker-end="url(#arrowBack)"/>
+      <line x1="500" y1="290" x2="480" y2="260"
+            stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"
+            marker-end="url(#arrowBack)"/>
+      <line x1="690" y1="400" x2="670" y2="370"
+            stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"
+            marker-end="url(#arrowBack)"/>
+      <line x1="880" y1="510" x2="860" y2="480"
+            stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3"
+            marker-end="url(#arrowBack)"/>
+
+      <!-- Legend -->
+      <g transform="translate(40, 540)">
+        <line x1="0" y1="10" x2="40" y2="10" stroke="#047857" stroke-width="2.5"
+              marker-end="url(#arrowFwd)"/>
+        <text x="50" y="14" font-family="Arial, sans-serif" font-size="11" fill="#334155">
+          Alur utama (forward)
+        </text>
+        <line x1="0" y1="32" x2="40" y2="32" stroke="#94a3b8" stroke-width="1.5"
+              stroke-dasharray="4,3" marker-end="url(#arrowBack)"/>
+        <text x="50" y="36" font-family="Arial, sans-serif" font-size="11" fill="#334155">
+          Iterasi / feedback
+        </text>
+      </g>
+
+      <!-- Title at top -->
+      <text x="550" y="30" text-anchor="middle" fill="#1a1a1a"
+            font-family="Arial, sans-serif" font-size="18" font-weight="bold">
+        Metode Waterfall
+      </text>
+    </svg>
+    <div class="caption">Gambar 1. Metode Waterfall</div>
+  </div>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { db } from "@/lib/db";
+import { getAppConfig } from "@/lib/app-config";
 import { getSession } from "@/lib/auth";
 import ChatClient from "@/app/chat/ChatClient";
 import ChatAuthClient from "@/app/chat/ChatAuthClient";
@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function ChatPage() {
-  const config = await db.query.appConfig.findFirst();
+  const config = await getAppConfig();
   const botName = config?.botName || "Asther";
   const user = await getSession();
 

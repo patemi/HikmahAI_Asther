@@ -1,6 +1,7 @@
 "use server";
 
 import { db, schema } from "@/lib/db";
+import { getAppConfig } from "@/lib/app-config";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
@@ -16,12 +17,14 @@ export async function updateConfig(formData: FormData) {
   const ragTopK = parseInt(formData.get("ragTopK") as string) || 5;
   const ragMinScore = parseInt(formData.get("ragMinScore") as string) || 70;
   const memoryLength = parseInt(formData.get("memoryLength") as string) || 5;
+  const guardrailLevel = (formData.get("guardrailLevel") as string) || "standar";
+  const citationStrict = formData.get("citationStrict") === "true";
   const newApiKey = formData.get("newApiKey") as string;
   const openaiApiKey = formData.get("openaiApiKey") as string;
   const baseUrl = (formData.get("baseUrl") as string) || "";
 
   try {
-    const existing = await db.query.appConfig.findFirst();
+    const existing = await getAppConfig();
 
     const updateData: Partial<typeof schema.appConfig.$inferInsert> = {
       botName,
@@ -34,6 +37,8 @@ export async function updateConfig(formData: FormData) {
       ragTopK,
       ragMinScore,
       memoryLength,
+      guardrailLevel: guardrailLevel === "ketat" ? "ketat" : "standar",
+      citationStrict,
       baseUrl: baseUrl.trim() || null,
       updatedAt: new Date(),
     };

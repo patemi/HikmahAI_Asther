@@ -204,8 +204,7 @@ export default function LandingPage() {
           {/* stats row */}
           <div className="animate-fade-in-up flex items-center justify-center gap-8 mb-12 text-xs text-[#4a6b5c]" style={{ animationDelay: "0.38s" }}>
             {[
-              { label: "Model", value: "Llama 3.3" },
-              { label: "Parameter", value: "70B" },
+              { label: "Model", value: "GPT-5" },
               { label: "Knowledge", value: "RAG" },
               { label: "Biaya", value: "Gratis" },
             ].map((s) => (

@@ -1,8 +1,8 @@
-import { db } from "@/lib/db";
+import { getAppConfig } from "@/lib/app-config";
 import ConfigForm from "./ConfigForm";
 
 export default async function ConfigPage() {
-  const config = await db.query.appConfig.findFirst();
+  const config = await getAppConfig();
   const envBearerToken = process.env.BEARER_TOKEN || "";
   const envOpenaiApiKey = process.env.OPENAI_API_KEY || process.env.LLM_API_KEY || "";
   const envBaseUrl =

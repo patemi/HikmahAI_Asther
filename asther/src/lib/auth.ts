@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { db, schema } from "@/lib/db";
+import { getAppConfig } from "@/lib/app-config";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
@@ -143,7 +144,7 @@ export async function registerUser(
 
 // Verify API bearer token
 export async function verifyApiToken(token: string) {
-  const config = await db.query.appConfig.findFirst();
+  const config = await getAppConfig();
 
   if (!config?.apiKeyHash) {
     // No API key configured, use env fallback
@@ -174,7 +175,7 @@ export async function initializeDefaultUser() {
 
 // Initialize default app config if none exists
 export async function initializeAppConfig() {
-  const existingConfig = await db.query.appConfig.findFirst();
+  const existingConfig = await getAppConfig();
 
   if (!existingConfig) {
     // Hash the bearer token from env
