@@ -1,4 +1,4 @@
-# Asther - AI Chatbot API with Management Dashboard
+# Hikmah AI - Islamic AI Chatbot API with Management Dashboard
 
 A full-stack AI chatbot solution with knowledge base management, memory isolation per user, and a comprehensive admin dashboard.
 
