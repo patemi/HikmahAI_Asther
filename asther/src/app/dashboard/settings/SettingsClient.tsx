@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+// import { cn } from "@/lib/utils";
 import { updateProfile, changePassword } from "@/app/actions/settings";
 import Toast from "@/components/Toast";
 
@@ -75,7 +75,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
         />
       )}
       <div>
-        <h1 className="text-2xl font-semibold text-stone-900">Settings</h1>
+        <h1 className="font-display text-3xl leading-none text-stone-900">Settings</h1>
         <p className="text-sm text-stone-500 mt-1">
           Manage your account settings and preferences
         </p>
@@ -83,7 +83,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Profile Settings */}
         <div className="bg-white border border-stone-200 rounded-lg p-5">
-          <h2 className="text-lg font-medium text-stone-900 mb-4">Profile</h2>
+          <h2 className="text-lg font-heading text-stone-900 mb-4">Profile</h2>
 
           <form onSubmit={handleProfileSubmit} className="space-y-4">
             <div>
@@ -117,7 +117,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
                 defaultValue={user.name}
                 placeholder="Enter your display name"
                 suppressHydrationWarning
-                className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-stone-900 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent"
+                className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-stone-900 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
 
@@ -125,7 +125,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
               type="submit"
               disabled={profileLoading}
               suppressHydrationWarning
-              className="px-4 py-2 bg-stone-900 text-white text-sm font-medium rounded-lg hover:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 bg-primary text-on-primary font-bold text-sm rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {profileLoading ? "Saving..." : "Save Profile"}
             </button>
@@ -134,7 +134,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
 
         {/* Password Settings */}
         <div className="bg-white border border-stone-200 rounded-lg p-5">
-          <h2 className="text-lg font-medium text-stone-900 mb-4">Change Password</h2>
+          <h2 className="text-lg font-heading text-stone-900 mb-4">Change Password</h2>
 
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
             <div>
@@ -150,7 +150,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
                 name="currentPassword"
                 required
                 suppressHydrationWarning
-                className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-stone-900 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent"
+                className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-stone-900 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
 
@@ -166,9 +166,9 @@ export default function SettingsClient({ user }: SettingsClientProps) {
                 id="newPassword"
                 name="newPassword"
                 required
-                minLength={6}
+                minLength={12}
                 suppressHydrationWarning
-                className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-stone-900 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent"
+                className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-stone-900 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
               <p className="text-xs text-stone-400 mt-1">Minimum 6 characters</p>
             </div>
@@ -185,9 +185,9 @@ export default function SettingsClient({ user }: SettingsClientProps) {
                 id="confirmPassword"
                 name="confirmPassword"
                 required
-                minLength={6}
+                minLength={12}
                 suppressHydrationWarning
-                className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-stone-900 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent"
+                className="w-full px-3 py-2 bg-white border border-stone-300 rounded-lg text-stone-900 text-sm placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
             </div>
 
@@ -195,7 +195,7 @@ export default function SettingsClient({ user }: SettingsClientProps) {
               type="submit"
               disabled={passwordLoading}
               suppressHydrationWarning
-              className="px-4 py-2 bg-stone-900 text-white text-sm font-medium rounded-lg hover:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 bg-primary text-on-primary font-bold text-sm rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {passwordLoading ? "Changing..." : "Change Password"}
             </button>

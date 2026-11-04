@@ -36,14 +36,14 @@ export default function ApiDocsClient({ baseUrl, bearerToken }: ApiDocsClientPro
     <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-stone-900">API Documentation</h1>
+          <h1 className="font-display text-3xl leading-none text-stone-900">API Documentation</h1>
           <p className="text-sm text-stone-500 mt-1">
-            Integrate Asther into your applications
+            Integrate Hikmah AI into your applications
           </p>
         </div>
         <button
           onClick={downloadMarkdown}
-          className="px-4 py-2 bg-stone-900 text-white text-sm font-medium rounded-lg hover:bg-stone-800 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:ring-offset-2 transition-colors flex items-center gap-2"
+          className="px-4 py-2 bg-primary text-on-primary font-bold text-sm rounded-lg hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors flex items-center gap-2"
         >
           <svg
             className="w-4 h-4"
@@ -64,9 +64,9 @@ export default function ApiDocsClient({ baseUrl, bearerToken }: ApiDocsClientPro
 
       {/* Overview */}
       <section className="bg-white border border-stone-200 rounded-lg p-6">
-        <h2 className="text-lg font-medium text-stone-900 mb-4">Overview</h2>
+        <h2 className="text-lg font-heading text-stone-900 mb-4">Overview</h2>
         <p className="text-stone-600 mb-4">
-          The Asther API allows you to integrate the chatbot into your applications.
+          The Hikmah AI API allows you to integrate the chatbot into your applications.
           All API requests require authentication using a Bearer token.
         </p>
         <div className="bg-stone-50 border border-stone-200 rounded-lg p-4">
@@ -77,7 +77,7 @@ export default function ApiDocsClient({ baseUrl, bearerToken }: ApiDocsClientPro
 
       {/* Authentication */}
       <section className="bg-white border border-stone-200 rounded-lg p-6">
-        <h2 className="text-lg font-medium text-stone-900 mb-4">Authentication</h2>
+        <h2 className="text-lg font-heading text-stone-900 mb-4">Authentication</h2>
         <p className="text-stone-600 mb-4">
           Include your API key in the Authorization header:
         </p>
@@ -104,7 +104,7 @@ export default function ApiDocsClient({ baseUrl, bearerToken }: ApiDocsClientPro
         </div>
         {!hasToken && (
           <p className="text-stone-500 text-xs mt-2">
-            Set <span className="font-mono">BEARER_TOKEN</span> in .env to reveal your API key.
+            Token tersimpan tidak ditampilkan ulang. Gunakan token yang kamu simpan saat mengaturnya di halaman Konfigurasi.
           </p>
         )}
       </section>
@@ -115,7 +115,7 @@ export default function ApiDocsClient({ baseUrl, bearerToken }: ApiDocsClientPro
           <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
             POST
           </span>
-          <h2 className="text-lg font-medium text-stone-900 font-mono">
+          <h2 className="text-lg font-semibold text-stone-900 font-mono">
             /api/chat
           </h2>
         </div>
@@ -190,8 +190,8 @@ data: [DONE]`}
         </div>
 
         <h3 className="text-stone-900 font-medium mt-6 mb-2">cURL Example</h3>
-        <div className="bg-stone-900 rounded-lg p-4 overflow-x-auto">
-          <pre className="text-green-400 text-sm font-mono">
+        <div className="bg-tinta p-4 overflow-x-auto">
+          <pre className="text-pucuk text-sm font-mono">
 {`curl -X POST "${baseUrl}/api/chat" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${showToken ? revealedToken : "YOUR_API_KEY"}" \\
@@ -200,8 +200,8 @@ data: [DONE]`}
         </div>
 
         <h3 className="text-stone-900 font-medium mt-6 mb-2">JavaScript Example</h3>
-        <div className="bg-stone-900 rounded-lg p-4 overflow-x-auto">
-          <pre className="text-green-400 text-sm font-mono">
+        <div className="bg-tinta p-4 overflow-x-auto">
+          <pre className="text-pucuk text-sm font-mono">
 {`const response = await fetch('${baseUrl}/api/chat', {
   method: 'POST',
   headers: {
@@ -246,7 +246,7 @@ while (true) {
           <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded">
             GET
           </span>
-          <h2 className="text-lg font-medium text-stone-900 font-mono">
+          <h2 className="text-lg font-semibold text-stone-900 font-mono">
             /api/chat/history
           </h2>
         </div>
@@ -262,8 +262,8 @@ while (true) {
         </div>
 
         <h3 className="text-stone-900 font-medium mt-6 mb-2">cURL Example</h3>
-        <div className="bg-stone-900 rounded-lg p-4 overflow-x-auto">
-          <pre className="text-green-400 text-sm font-mono">
+        <div className="bg-tinta p-4 overflow-x-auto">
+          <pre className="text-pucuk text-sm font-mono">
 {`curl "${baseUrl}/api/chat/history?participantId=user-123&limit=50" \\
   -H "Authorization: Bearer ${showToken ? revealedToken : "YOUR_API_KEY"}"`}
           </pre>
@@ -298,7 +298,7 @@ while (true) {
           <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-medium rounded">
             DELETE
           </span>
-          <h2 className="text-lg font-medium text-stone-900 font-mono">
+          <h2 className="text-lg font-semibold text-stone-900 font-mono">
             /api/chat/history
           </h2>
         </div>
@@ -316,8 +316,8 @@ while (true) {
         </div>
 
         <h3 className="text-stone-900 font-medium mt-6 mb-2">cURL Example</h3>
-        <div className="bg-stone-900 rounded-lg p-4 overflow-x-auto">
-          <pre className="text-green-400 text-sm font-mono">
+        <div className="bg-tinta p-4 overflow-x-auto">
+          <pre className="text-pucuk text-sm font-mono">
 {`curl -X DELETE "${baseUrl}/api/chat/history" \\
   -H "Content-Type: application/json" \\
   -H "Authorization: Bearer ${showToken ? revealedToken : "YOUR_API_KEY"}" \\
@@ -337,7 +337,7 @@ while (true) {
 
       {/* Error Responses */}
       <section className="bg-white border border-stone-200 rounded-lg p-6">
-        <h2 className="text-lg font-medium text-stone-900 mb-4">Error Responses</h2>
+        <h2 className="text-lg font-heading text-stone-900 mb-4">Error Responses</h2>
         <div className="space-y-3">
           <div className="flex items-start">
             <span className="text-red-600 font-mono text-sm w-16">401</span>
@@ -358,11 +358,11 @@ while (true) {
 }
 
 function generateMarkdown(baseUrl: string, bearerToken: string): string {
-  return `# Asther API Documentation
+  return `# Hikmah AI API Documentation
 
 ## Overview
 
-The Asther API allows you to integrate the chatbot into your applications.
+The Hikmah AI API allows you to integrate the chatbot into your applications.
 All API requests require authentication using a Bearer token.
 
 **Base URL:** \`${baseUrl}/api\`
@@ -543,6 +543,6 @@ curl -X DELETE "${baseUrl}/api/chat/history" \\
 
 ---
 
-*Generated by Asther*
+*Generated by Hikmah AI*
 `;
 }

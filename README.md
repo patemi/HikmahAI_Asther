@@ -1,312 +1,179 @@
-# Hikmah AI - Islamic AI Chatbot API with Management Dashboard
+# HikmahAI
 
-A full-stack AI chatbot solution with knowledge base management, memory isolation per user, and a comprehensive admin dashboard.
+Asisten edukasi keislaman berbasis LLM dan Retrieval-Augmented Generation (RAG), dengan aplikasi chat, pengelolaan sumber, evaluasi jawaban, dan API integrasi.
 
-![Workflow](figures/workflow.png)
+Ruang lingkup: hukum Islam, sejarah Islam, serta pengetahuan umum Islam. RAG menyediakan rujukan terkelola; ketepatan materi tetap memerlukan kurasi dan peninjauan ahli.
 
-## Features
+## Kemampuan
 
-- **Chat API** - RESTful endpoint with bearer token authentication and streaming support
-- **Memory Isolation** - Each user's chat history is isolated by phone number
-- **Knowledge Base** - RAG-powered responses using pgvector for semantic search
-- **Admin Dashboard** - Configure LLM, manage knowledge, view chat history
-- **Multi-model Support** - Uses gpt-4.1-nano for text, gpt-4.1 for images
-- **Demo Mode** - Test the chatbot with ephemeral (non-persistent) conversations
+- Chat dengan sesi akun, riwayat milik pengguna, streaming, dan pilihan kedalaman jawaban.
+- Dashboard khusus admin; pemeriksaan izin juga dilakukan pada halaman, Server Actions, dan endpoint sensitif.
+- Dokumen teks / JSON melalui alur **draft → dalam tinjauan → terbit**. Hanya dokumen terbit yang sudah ditinjau digunakan dalam retrieval.
+- Pencarian semantik dan kata kunci dengan ambang relevansi. Tidak ada fallback yang memaksakan dokumen di bawah ambang.
+- Kutipan menyimpan isi, identitas sumber, penulis, lokasi rujukan, versi, dan peninjau pada saat jawaban dibuat.
+- Mode wajib sumber menahan jawaban ketika rujukan tidak memadai, termasuk saat tampilan sitasi disembunyikan.
+- Laporan jawaban dengan snapshot percakapan dan antrean tinjauan admin.
+- Evaluasi jawaban aktual: dukungan sumber, ketepatan terhadap acuan, kelengkapan, ketepatan kutipan, dan perilaku menolak / menjawab.
+- Kuota request dan cadangan anggaran token melalui PostgreSQL, serta pemantauan pemakaian provider.
+- Halaman privasi dan penghapusan riwayat beserta laporan terkait.
 
-## Architecture
+## Stack
 
-```
-asther/
-├── src/
-│   ├── app/
-│   │   ├── api/          # Next.js API routes (chat, auth)
-│   │   ├── dashboard/    # Admin dashboard pages
-│   │   └── login/        # Authentication page
-│   ├── components/       # React components
-│   └── lib/
-│       ├── db/           # Drizzle ORM schema and client
-│       └── utils/        # Utilities, auth, RAG
-├── public/               # Static assets
-└── drizzle/              # Database migrations
-```
+Next.js App Router, React, TypeScript, Tailwind CSS, Drizzle ORM, PostgreSQL dengan pgvector, Bun. Klien AI mendukung OpenAI, endpoint kompatibel, dan konfigurasi Gemini.
 
-## Tech Stack
+## Menjalankan secara lokal
 
-- **Runtime**: Bun
-- **Framework**: Next.js 16.1.6 with Turbopack (App Router)
-- **Database**: PostgreSQL 17 with pgvector extension
-- **ORM**: Drizzle ORM
-- **AI**: OpenAI (gpt-4.1-nano for text, gpt-4.1 for images, text-embedding-3-small for embeddings)
-- **Styling**: Tailwind CSS
+1. Siapkan PostgreSQL dengan ekstensi pgvector; konfigurasi contoh tersedia pada `postgres/`.
+2. Salin `.env.example` ke `asther/.env`. Isi kredensial database, identitas pengelola, password yang kuat, dan kunci penyedia AI. Model harus tersedia pada penyedia yang dipilih.
+3. Dari direktori `asther/`:
 
----
-
-## Development Setup
-
-### Prerequisites
-
-- [Bun](https://bun.sh) installed
-- [Docker](https://docker.com) installed
-- OpenAI API key
-
-### 1. Clone and Setup
-
-```bash
-git clone <repository-url>
-cd asther
-```
-
-### 2. Start Database
-
-```bash
-cd postgres
-docker compose up -d
-cd ..
-```
-
-This starts PostgreSQL with pgvector on port 5433.
-
-### 3. Configure Environment
-
-```bash
-cd asther
-cp .env.example .env
-```
-
-Edit `.env` with your settings:
-
-```env
-# Database
-DATABASE_URL=postgresql://astheron:supersmart@localhost:5433/asther
-
-# OpenAI
-OPENAI_API_KEY=sk-your-openai-api-key
-
-# Admin Credentials (first run only)
-DEFAULT_USERNAME=asther
-DEFAULT_PASSWORD=admin
-
-# Session
-SESSION_SECRET=your-random-session-secret-at-least-32-chars
-
-# Optional
-MEMORY_LENGTH=5
-CORS_ORIGIN=*
-```
-
-### 4. Install Dependencies
-
-```bash
+```sh
 bun install
-```
-
-### 5. Setup Database Schema
-
-```bash
-bun run db:push
-```
-
-### 6. Start Development Server
-
-```bash
+bun run db:migrate
+bun run db:seed
 bun run dev
 ```
 
-Visit http://localhost:3000 to access the dashboard.
+Buka `http://localhost:3000`. Dashboard pengelola berada di `/login`; pengguna biasa mendaftar melalui `/chat`.
 
-Default login:
-- **Username**: Value of `DEFAULT_USERNAME` (default: `asther`)
-- **Password**: Value of `DEFAULT_PASSWORD` (default: `admin`)
+Untuk menjalankan PostgreSQL saja melalui Docker, salin `.env.example` ke `.env` pada root, isi `POSTGRES_PASSWORD`, lalu jalankan dari root:
 
----
-
-## Docker Deployment
-
-### Quick Start
-
-Deploy the entire stack with a single command:
-
-```bash
-# From root directory (not asther/)
-docker compose up -d
+```sh
+docker compose --env-file .env -f postgres/docker-compose.yaml up -d
 ```
 
-This starts:
-- PostgreSQL with pgvector on port 5435 (container: `asther_postgre`)
-- Asther web application on port 5000 (container: `asther-web`)
+Samakan password pada `DATABASE_URL` di `asther/.env` dengan `POSTGRES_PASSWORD`. Jika password mengandung karakter khusus URL, lakukan percent-encoding pada bagian password di `DATABASE_URL`.
 
-### Environment Configuration
+Bootstrap hanya memberikan peran admin kepada akun yang cocok dengan `DEFAULT_USERNAME` ketika belum ada admin. Password akun lama dipertahankan. Pembuatan admin baru memerlukan password minimal 12 karakter. Registrasi publik selalu menghasilkan peran pengguna biasa.
 
-Create a `.env` file in the root directory:
+## Ruang percakapan HikmahAI
 
-```env
-# Required
-OPENAI_API_KEY=sk-your-openai-api-key
-SESSION_SECRET=your-random-session-secret-at-least-32-chars
+Halaman utama langsung membuka `/chat`. Setelah masuk, pengguna dapat memulai percakapan, mencari riwayat berdasarkan judul atau isi, mengganti judul, menyematkan, dan menghapus percakapan. Tautan `/chat?c=<id>` membuka percakapan tertentu setelah kepemilikannya diperiksa server.
 
-# Optional - Database credentials
-POSTGRES_USER=astheron
-POSTGRES_PASSWORD=supersmart
-POSTGRES_DB=asther
+Jawaban tampil bertahap dengan pilihan kedalaman penjelasan. Pengguna dapat menghentikan respons, menyalin, membuat ulang jawaban terakhir, memeriksa panel sumber, dan melaporkan kekeliruan. Respons yang dihentikan tetap tersimpan. Pembuatan ulang menyimpan versi lama untuk pemeriksaan pengelola dan menampilkan versi aktif pada riwayat pengguna maupun API integrasi. Gunakan `bun run db:migrate` untuk menambahkan kolom pendukungnya.
 
-# Optional - Admin credentials (used on first run)
-DEFAULT_USERNAME=asther
-DEFAULT_PASSWORD=admin
+HikmahAI menangani sapaan secara langsung dan memakai konteks pertanyaan sebelumnya untuk tindak lanjut singkat. Pengetahuan keislaman tetap mengikuti kebijakan rujukan: hanya dokumen terbit yang sudah ditinjau yang digunakan. Saat sumber belum memadai, sistem menjelaskan keterbatasan tersebut. Tema terang dan gelap, sidebar mobile, serta navigasi keyboard tersedia pada ruang percakapan.
 
-# Optional - API settings
-BEARER_TOKEN=asther_your_custom_token
-MEMORY_LENGTH=5
-CORS_ORIGIN=*
+Pengalaman percakapan memakai tata letak monokrom dengan composer di tengah saat chat baru dan di bawah saat percakapan berjalan. Fitur tambahan:
+
+- **Edit pertanyaan** membuka cabang dengan konteks sebelumnya; percakapan asli tetap utuh. Cabang dibatasi hingga 500 pesan sebelumnya.
+- **Chat sementara** mengirim konteks dari halaman browser, tanpa menyimpan peserta atau pesan pada database HikmahAI. Konteks hilang saat berganti chat atau memuat ulang. Kuota serta kebijakan penyedia AI tetap berlaku.
+- **Arsip** menyembunyikan percakapan dari daftar utama; pulihkan dari menu Arsip. Arsip tidak mencabut tautan berbagi.
+- **Bagikan** menyediakan pratinjau pesan dan kutipan sumber. Tautan publik menyimpan salinan, tidak mengikuti pesan baru otomatis, dan dapat diperbarui atau dicabut oleh pemilik. Pembaruan ditolak jika isi berbeda dari pratinjau. Email akun dan isi berkas tidak ditambahkan ke salinan, tetapi data yang tertulis pada pesan atau jawaban tetap terlihat. Halaman berbagi meminta mesin pencari untuk tidak mengindeksnya. Batas berbagi: 500 pesan dan 1 MB.
+- **Ekspor** mengunduh percakapan aktif, lampiran, dan daftar rujukan sebagai Markdown (hingga 2.000 pesan).
+- **Lampiran** mendukung hingga 3 berkas UTF-8 `.txt` / `.md`, masing-masing maksimal 64 KB dan 16.000 karakter, total maksimal 20.000 karakter. Lampiran adalah konteks pengguna yang belum ditinjau, bukan pengganti rujukan terkelola. PDF, gambar lokal, dan format lainnya belum didukung oleh composer.
+- **Penilaian jawaban** menyimpan suara membantu / kurang membantu, hanya untuk pemilik pesan. Laporan terperinci tetap tersedia melalui menu jawaban.
+- **Suara** menggunakan pembacaan teks dan dikte browser. Dukungan suara bergantung pada browser, perangkat, izin mikrofon, serta koneksi. Ini bukan mode percakapan suara real time.
+- **Pengaturan** mengelola tema, gaya jawaban, arsip, serta informasi privasi. Tema dan gaya jawaban disimpan pada browser. Menu gaya jawaban mengubah kedalaman penjelasan, bukan mengganti model penyedia.
+
+Pintasan: `Ctrl` / `⌘` + `K` untuk mencari, `Ctrl` / `⌘` + `Shift` + `O` untuk chat baru, `Shift` + `Enter` untuk baris baru.
+
+## Upgrade database lama
+
+```sh
+cd asther
+bun run db:migrate
+bun run db:seed
 ```
 
-### Docker Commands
+Migrasi bersifat aditif, dijalankan dalam transaksi dan dapat diulang, termasuk pada database lama yang dibuat menggunakan `db:push`. Migrasi tidak menghapus akun, percakapan, atau dokumen.
 
-```bash
-# Start services
-docker compose up -d
+Perubahan yang perlu diperhatikan:
 
-# View logs
-docker logs asther-web -f
-docker logs asther_postgre -f
+- Dokumen lama masuk sebagai draft. Periksa identitas sumber dan isi, ajukan tinjauan, lalu terbitkan.
+- Kewajiban rujukan diaktifkan saat upgrade. Aktifkan RAG dan terbitkan sumber yang sesuai agar sistem dapat menjawab.
+- Vektor lama yang belum memiliki identitas model tidak dicampur dengan vektor model lain. Indeks ulang dokumen untuk mengaktifkan pencarian semantik; pencarian kata kunci tetap tersedia untuk dokumen terbit.
+- Kutipan historis hanya tersedia untuk jawaban baru yang menyimpannya. Sistem tidak mengarang kutipan untuk jawaban lama.
+- Kasus evaluasi lama perlu jawaban acuan dan konfirmasi peninjauan sebelum dijalankan ulang. Hasil lama ditandai sebagai evaluasi lama.
 
-# Stop services
-docker compose down
+## API
 
-# Rebuild after code changes
-docker compose build asther-web
-docker compose up -d
-
-# Full rebuild (no cache)
-docker compose build --no-cache
-docker compose up -d
-
-# Remove volumes (WARNING: deletes all data)
-docker compose down -v
-```
-
-### Production Considerations
-
-1. **Change default credentials** - Set strong `DEFAULT_USERNAME` and `DEFAULT_PASSWORD`
-2. **Secure SESSION_SECRET** - Use a cryptographically random string (32+ chars)
-3. **CORS configuration** - Set `CORS_ORIGIN` to your frontend domain instead of `*`
-4. **Database backups** - The postgres data is persisted in a Docker volume
-
----
-
-## API Usage
-
-### Authentication
-
-All API requests require a Bearer token:
-
-```
-Authorization: Bearer asther_xxxxxxxxxxxxx
-```
-
-Get your token from Dashboard → Configuration → API Key.
-
-### Chat Endpoint
-
-**POST** `/api/chat`
-
-#### Request Body
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `username` | string | No | User's display name |
-| `phonenumber` | string | Yes | Unique identifier for the user |
-| `chat` | string | Yes | User's message |
-| `has_image` | boolean | No | Whether the message contains an image |
-| `image_url` | string | Conditional | URL of the image (required if `has_image` is true) |
-| `ephemeral` | boolean | No | If true, don't persist the conversation |
-
-#### Example Request
+`POST /api/chat` menggunakan `Authorization: Bearer <token>`. Atur token pada dashboard dan simpan token tersebut; hash yang tersimpan tidak dapat ditampilkan ulang. Mengganti token tidak memengaruhi autentikasi chat web.
 
 ```json
 {
-  "username": "John Doe",
-  "phonenumber": "+1234567890",
-  "chat": "Hello, how can you help me?",
-  "has_image": false
+  "participantId": "external-user-001",
+  "message": "Apa pengertian zakat?",
+  "userName": "Pembaca",
+  "saveHistory": true,
+  "responseDepth": "standar",
+  "includeCitations": true
 }
 ```
 
-#### Example Response
+`responseDepth`: `ringkas`, `standar`, atau `mendalam`. `imageUrl` opsional berupa URL HTTPS publik. `includeCitations` merupakan preferensi tampilan dan tidak dapat melewati kebijakan wajib sumber. Identitas pemilik chat web diambil dari sesi, bukan dari payload.
 
-```json
-{
-  "success": true,
-  "response": "Hello! I'm Asther, your AI assistant...",
-  "model": "gpt-4.1-nano",
-  "usage": {
-    "prompt_tokens": 125,
-    "completion_tokens": 42,
-    "total_tokens": 167
-  }
-}
+`attachments` opsional berupa array `{ "name": "catatan.md", "content": "Teks lampiran" }` dengan batas yang sama seperti composer. Pada `saveHistory: false`, `history` boleh berisi hingga 12 pesan dengan role `user` / `assistant` (maksimal 60.000 karakter seluruhnya) untuk konteks sementara. Untuk chat tersimpan, server selalu memakai riwayat database dan mengabaikan `history` dari klien.
+
+Respons menggunakan Server-Sent Events:
+
+```text
+data: {"type":"turn","userMessageId":"..."}
+
+data: {"type":"citations","citations":[...],"notice":null}
+
+data: {"content":"Potongan jawaban"}
+
+data: {"type":"metadata","messageId":"...","userMessageId":"...","provenance":{...}}
+
+data: [DONE]
 ```
 
-### cURL Example
+Jika penyimpanan atau streaming gagal setelah koneksi terbuka, server mengirim event `type: "error"`. Klien harus memeriksa event ini dan penanda `[DONE]`. Laporan hanya dapat dibuat untuk ID jawaban yang sudah tersimpan dan dimiliki pengguna.
 
-```bash
-curl -X POST "http://localhost:5000/api/chat" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{
-    "username": "John",
-    "phonenumber": "+1234567890",
-    "chat": "Hello!"
-  }'
+`GET /api/chat/history?participantId=...&limit=50` dan `DELETE /api/chat/history` ditujukan untuk integrasi server tepercaya dengan bearer token. Token integrasi jangan ditanam dalam aplikasi publik. Dokumentasi tambahan tersedia pada dashboard.
+
+## Kuota dan privasi
+
+- `CHAT_REQUESTS_PER_MINUTE`: default 10 per identitas.
+- `CHAT_REQUESTS_PER_DAY`: default 100 per periode 24 jam.
+- `MODEL_REQUESTS_PER_DAY`: default 2000 percobaan provider untuk seluruh aplikasi.
+- `MODEL_TOKENS_PER_DAY`: default 500000 cadangan anggaran token untuk seluruh aplikasi.
+- Klasifikasi, embedding, generasi, analisis gambar, dan evaluasi menggunakan anggaran provider yang sama. Percobaan gagal tetap dihitung. Cadangan token bersifat konservatif, bukan estimasi tagihan.
+- `TRUST_PROXY=true` hanya jika proxy deployment menimpa header IP dari klien. Tanpa itu, pembatasan berdasarkan jaringan memakai satu identitas bersama.
+- `CORS_ORIGIN` mengaktifkan akses browser untuk origin integrasi yang ditentukan. Jangan memakai wildcard untuk endpoint sesi pengguna.
+- `APP_URL` merupakan URL aplikasi; `LLM_API_BASE` merupakan endpoint penyedia model. Hindari mencampur keduanya.
+- `CHAT_RETENTION_DAYS=0` mempertahankan riwayat sampai dihapus. Nilai positif secara eksplisit mengaktifkan pembersihan pesan lama saat runtime Node aplikasi berjalan, setiap jam. Untuk serverless / pekerjaan terjadwal, jalankan `bun run maintenance` melalui scheduler.
+- Penghapusan percakapan menghapus laporan terkait dari database aktif. Kebijakan backup dan penyedia AI dikelola secara terpisah.
+
+## Docker
+
+Dari direktori root, isi `.env` untuk Docker Compose dan jalankan:
+
+```sh
+docker compose up -d --build
 ```
 
-### Image Analysis Example
+Entrypoint menjalankan migrasi aditif dan bootstrap sebelum server. Backup database tetap diperlukan sebagai prosedur operasional deployment.
 
-```bash
-curl -X POST "http://localhost:5000/api/chat" \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -d '{
-    "username": "John",
-    "phonenumber": "+1234567890",
-    "chat": "What is in this image?",
-    "has_image": true,
-    "image_url": "https://example.com/image.jpg"
-  }'
+## Validasi
+
+Dari `asther/`:
+
+```sh
+bun run test
+bun run test:integration
+bun run typecheck
+bun run lint
+bun run build
 ```
 
----
+Pengujian integrasi menggunakan skema PostgreSQL sementara dengan nama acak, memeriksa migrasi database baru dan lama, lalu menghapus skema pengujian. Pengujian ini memerlukan izin membuat skema pada database pengembangan dan tidak mengakses model AI nyata.
 
-## Dashboard Features
+`bun scripts/smoke-server.ts` menyediakan server browser di port 3100 dengan database sementara dan provider AI lokal untuk pengujian antarmuka. Akun contoh pengujian hanya dibuat pada skema sementara. Hentikan server dengan Ctrl+C untuk membersihkan datanya.
 
-| Feature | Description |
-|---------|-------------|
-| **Dashboard** | Overview of conversations, RAG status, and token usage |
-| **Configuration** | Set system prompt, bot persona, AI models, and RAG settings |
-| **Knowledge** | Add/edit/delete knowledge documents (auto-chunked and embedded) |
-| **History** | View all conversations, filter by user, delete chats |
-| **Demo** | Test the chatbot with ephemeral conversations |
-| **API Docs** | Interactive documentation with cURL examples |
-| **Settings** | Change profile and password |
+## Berkas yang masuk GitHub
 
----
+Repositori menyimpan kode aplikasi, aset pada `asther/public/`, pengujian, skrip, konfigurasi Docker, `bun.lock`, migrasi SQL beserta `drizzle/meta/`, dan dokumentasi teknis. Metadata Drizzle diperlukan untuk menjaga urutan dan perubahan skema. Workflow pada `.github/` juga boleh dilacak.
 
-## Environment Variables
+`.gitignore` pada root mengabaikan kredensial dan semua `.env` lokal, dependensi, hasil build, cache, log, laporan pengujian, database lokal, backup, serta konfigurasi dan sesi agen AI. Hanya template `.env.example`, `.env.sample`, dan `.env.template` yang boleh dilacak; isinya harus selalu berupa placeholder.
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | Required |
-| `OPENAI_API_KEY` | OpenAI API key | Required |
-| `SESSION_SECRET` | Cookie signing secret (32+ chars) | Required |
-| `DEFAULT_USERNAME` | Initial admin email | `asther` |
-| `DEFAULT_PASSWORD` | Initial admin password | `admin` |
-| `MEMORY_LENGTH` | Chat messages to include as context | `5` |
-| `BEARER_TOKEN` | API authentication token | Auto-generated |
-| `CORS_ORIGIN` | Allowed CORS origins | `*` |
+Dokumen akademik pada root (`.pdf`, `.doc`, `.docx`, `.ppt`, `.pptx`), `ppt-slides/`, `build-pptx.js`, dan `hasil_dan_pembahasan.md` disimpan lokal. Aturan ini tidak mengecualikan aset aplikasi dengan format yang sama di subdirektori.
 
----
+File yang sudah dilacak Git tidak otomatis dikeluarkan oleh `.gitignore`. Gunakan `git rm --cached -- <path>` untuk menghentikan pelacakan sambil mempertahankan salinan lokal. Penghapusan dari commit terbaru tidak menghapus file dari riwayat lama; jika kredensial pernah terunggah, ganti kredensial tersebut.
 
-## License
+Sebelum commit, periksa `git status --short` dan `git diff --cached`. Untuk memeriksa aturan suatu file, gunakan `git check-ignore -v --no-index <path>`.
 
-Proprietary - All Rights Reserved
+## Lisensi
 
-See [LICENSE](LICENSE) for details.
+Proprietary — lihat [LICENSE](LICENSE).

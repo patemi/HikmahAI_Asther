@@ -49,13 +49,13 @@ export default function JsonUploadClient() {
   }
 
   const inputClass =
-    "w-full px-3 py-2 bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent";
+    "w-full px-3 py-2 bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent";
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold text-stone-900">Upload JSON Documents</h1>
+          <h1 className="font-display text-3xl leading-none text-stone-900">Upload JSON Documents</h1>
           <p className="text-stone-500 text-sm mt-1">
             Import many JSON files directly into the knowledge base for RAG.
           </p>
@@ -81,7 +81,7 @@ export default function JsonUploadClient() {
       )}
 
       <div className="bg-white rounded-lg p-5 border border-stone-200">
-        <h2 className="text-base font-semibold text-stone-900 mb-4">Bulk Upload</h2>
+        <h2 className="text-base font-heading text-stone-900 mb-4">Bulk Upload</h2>
         <form action={handleUpload} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-stone-700 mb-1.5">
@@ -108,7 +108,7 @@ export default function JsonUploadClient() {
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-400 text-white font-medium rounded-md text-sm"
+              className="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-on-primary font-bold rounded-md text-sm"
             >
               {loading ? "Importing..." : "Import JSON Files"}
             </button>

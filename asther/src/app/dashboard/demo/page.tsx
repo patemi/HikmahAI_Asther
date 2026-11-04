@@ -1,7 +1,8 @@
+import { requireAdminPage } from "@/lib/auth";
 import DemoClient from "./DemoClient";
 
-export default function DemoPage() {
-  const bearerToken = process.env.BEARER_TOKEN || "changeme";
+export default async function DemoPage() {
+  await requireAdminPage();
 
-  return <DemoClient bearerToken={bearerToken} />;
+  return <DemoClient />;
 }

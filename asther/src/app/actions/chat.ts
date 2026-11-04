@@ -1,26 +1,35 @@
 "use server";
-
+import { requireAdmin } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-
+import { z } from "zod";
 export async function deleteParticipantChat(participantId: string) {
+  await requireAdmin();
+  if (!z.uuid().safeParse(participantId).success)
+    return { error: "ID percakapan tidak valid." };
   try {
-    // Delete all messages for this participant
-    await db
-      .delete(schema.chatMessages)
-      .where(eq(schema.chatMessages.participantId, participantId));
-
-    // Delete the participant record
-    await db
+    const [deleted] = await db
       .delete(schema.chatParticipants)
-      .where(eq(schema.chatParticipants.id, participantId));
-
+      .where(
+        and(
+          eq(schema.chatParticipants.id, participantId),
+          sql`(${schema.chatParticipants.processingUntil} IS NULL OR ${schema.chatParticipants.processingUntil} <= now())`,
+        ),
+      )
+      .returning({ id: schema.chatParticipants.id });
+    if (!deleted) {
+      const existing = await db.query.chatParticipants.findFirst({
+        where: eq(schema.chatParticipants.id, participantId),
+      });
+      if (existing)
+        return {
+          error: "Tunggu jawaban selesai sebelum menghapus percakapan.",
+        };
+    }
     revalidatePath("/dashboard/history");
-
     return { success: true };
-  } catch (error) {
-    console.error("Delete participant error:", error);
-    return { error: "Failed to delete chat history" };
+  } catch {
+    return { error: "Percakapan belum dapat dihapus." };
   }
 }

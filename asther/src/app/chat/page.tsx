@@ -4,13 +4,14 @@ import ChatClient from "@/app/chat/ChatClient";
 import ChatAuthClient from "@/app/chat/ChatAuthClient";
 
 export const metadata = {
-  title: "Chat — HikmahAI",
-  description: "Tanyakan seputar Islam kepada HikmahAI, asisten AI keislaman Anda",
+  title: "Chat — Hikmah AI",
+  description:
+    "Tanya apa aja soal Islam ke Hikmah AI. Jawabannya ada dalilnya.",
 };
 
 export default async function ChatPage() {
   const config = await getAppConfig();
-  const botName = config?.botName || "Asther";
+  const botName = config?.botName || "Hikmah AI";
   const user = await getSession();
 
   if (!user) {
@@ -24,6 +25,7 @@ export default async function ChatPage() {
         id: user.id,
         name: user.name,
         email: user.email,
+        role: user.role,
       }}
     />
   );

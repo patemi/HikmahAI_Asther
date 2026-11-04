@@ -1,0 +1,2 @@
+# Preserve executable shell scripts on Windows checkouts and Linux deployments.
+*.sh text eol=lf

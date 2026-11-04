@@ -1,77 +1,85 @@
 "use server";
-
+import { requireAdmin } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
 import { getAppConfig } from "@/lib/app-config";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-
-export async function updateConfig(formData: FormData) {
-  const botName = formData.get("botName") as string;
-  const botPersonality = formData.get("botPersonality") as string;
-  const systemPrompt = formData.get("systemPrompt") as string;
-  const textModel = formData.get("textModel") as string;
-  const imageModel = formData.get("imageModel") as string;
-  const embeddingModel = formData.get("embeddingModel") as string;
-  const ragEnabled = formData.get("ragEnabled") === "true";
-  const ragTopK = parseInt(formData.get("ragTopK") as string) || 5;
-  const ragMinScore = parseInt(formData.get("ragMinScore") as string) || 70;
-  const memoryLength = parseInt(formData.get("memoryLength") as string) || 5;
-  const guardrailLevel = (formData.get("guardrailLevel") as string) || "standar";
-  const citationStrict = formData.get("citationStrict") === "true";
-  const newApiKey = formData.get("newApiKey") as string;
-  const openaiApiKey = formData.get("openaiApiKey") as string;
-  const baseUrl = (formData.get("baseUrl") as string) || "";
-
+import { z } from "zod";
+const configSchema = z.object({
+  botName: z.string().trim().min(1).max(100),
+  botPersonality: z.string().trim().max(2000),
+  systemPrompt: z.string().trim().max(16000),
+  textModel: z.string().trim().min(1).max(200),
+  imageModel: z.string().trim().min(1).max(200),
+  embeddingModel: z.string().trim().min(1).max(200),
+  baseUrl: z.union([
+    z.literal(""),
+    z
+      .url()
+      .refine(
+        (value) =>
+          ["https:", "http:"].includes(new URL(value).protocol) &&
+          !new URL(value).username &&
+          !new URL(value).password,
+      ),
+  ]),
+  ragEnabled: z.boolean(),
+  citationStrict: z.boolean(),
+  ragTopK: z.coerce.number().int().min(1).max(12),
+  ragMinScore: z.coerce.number().int().min(10).max(100),
+  memoryLength: z.coerce.number().int().min(1).max(20),
+  guardrailLevel: z.enum(["standar", "ketat"]),
+  newApiKey: z
+    .string()
+    .trim()
+    .max(72)
+    .refine(
+      (v) => !v || (v.length >= 32 && Buffer.byteLength(v) <= 72),
+      "Token API minimal 32 karakter, maksimal 72 byte.",
+    ),
+  openaiApiKey: z.string().trim().max(1000),
+  geminiApiKey: z.string().trim().max(1000),
+});
+export async function updateConfig(form: FormData) {
+  await requireAdmin();
+  const parsed = configSchema.safeParse({
+    ...Object.fromEntries(form),
+    ragEnabled: form.get("ragEnabled") === "true",
+    citationStrict: form.get("citationStrict") === "true",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const { newApiKey, openaiApiKey, geminiApiKey, baseUrl, ...settings } =
+    parsed.data;
   try {
     const existing = await getAppConfig();
-
-    const updateData: Partial<typeof schema.appConfig.$inferInsert> = {
-      botName,
-      botPersonality,
-      systemPrompt,
-      textModel,
-      imageModel,
-      embeddingModel,
-      ragEnabled,
-      ragTopK,
-      ragMinScore,
-      memoryLength,
-      guardrailLevel: guardrailLevel === "ketat" ? "ketat" : "standar",
-      citationStrict,
-      baseUrl: baseUrl.trim() || null,
+    if (!existing)
+      return {
+        error: "Konfigurasi belum diinisialisasi. Jalankan bootstrap aplikasi.",
+      };
+    const update = {
+      ...settings,
+      baseUrl: baseUrl || null,
+      ...(newApiKey ? { apiKeyHash: await bcrypt.hash(newApiKey, 12) } : {}),
+      ...(openaiApiKey ? { openaiApiKey } : {}),
+      ...(geminiApiKey ? { geminiApiKey } : {}),
       updatedAt: new Date(),
     };
-
-    // Hash new API key if provided
-    if (newApiKey && newApiKey.trim()) {
-      updateData.apiKeyHash = await bcrypt.hash(newApiKey.trim(), 10);
-    }
-
-    if (openaiApiKey && openaiApiKey.trim()) {
-      updateData.openaiApiKey = openaiApiKey.trim();
-    }
-
-    if (existing) {
-      await db
-        .update(schema.appConfig)
-        .set(updateData)
-        .where(eq(schema.appConfig.id, existing.id));
-    } else {
-      // Create default config with API key
-      if (!updateData.apiKeyHash) {
-        const defaultToken = process.env.BEARER_TOKEN || "changeme";
-        updateData.apiKeyHash = await bcrypt.hash(defaultToken, 10);
-      }
-      await db.insert(schema.appConfig).values(updateData as typeof schema.appConfig.$inferInsert);
-    }
-
+    await db
+      .update(schema.appConfig)
+      .set(update)
+      .where(eq(schema.appConfig.id, existing.id));
     revalidatePath("/dashboard/config");
     revalidatePath("/dashboard");
-
-    return { success: true };
-  } catch (error) {
-    console.error("Update config error:", error);
-    return { error: "Failed to update configuration" };
+    revalidatePath("/chat");
+    return {
+      success: true,
+      message:
+        existing.embeddingModel !== settings.embeddingModel
+          ? "Tersimpan. Model embedding berubah; buka Basis pengetahuan dan jalankan embedding agar pencarian semantik memakai ruang vektor yang sama."
+          : "Konfigurasi tersimpan.",
+    };
+  } catch {
+    return { error: "Konfigurasi belum dapat disimpan." };
   }
 }

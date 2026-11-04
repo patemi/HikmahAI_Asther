@@ -1,69 +1,61 @@
 "use server";
-
-import {
-  loginUser,
-  registerUser,
-  deleteSession,
-  initializeDefaultUser,
-  initializeAppConfig,
-} from "@/lib/auth";
+import { loginUser, registerUser, deleteSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { consumeLimit, requestIdentity } from "@/lib/limits";
+import { HttpError } from "@/lib/http";
 
+async function throttle() {
+  await consumeLimit(
+    "auth-network",
+    requestIdentity(
+      new Request("http://localhost", { headers: await headers() }),
+    ),
+    20,
+    900,
+  );
+}
 export async function login(formData: FormData) {
-  console.log("[ACTION] Login action called");
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-
-  console.log(`[ACTION] Email: ${email}, Password length: ${password?.length || 0}`);
-
-  if (!email || !password) {
-    console.log("[ACTION] Missing email or password");
-    return { error: "Email and password are required" };
-  }
-
   try {
-    await initializeDefaultUser();
-    await initializeAppConfig();
-
-    console.log("[ACTION] Calling loginUser...");
-    const result = await loginUser(email, password);
-    console.log("[ACTION] loginUser result:", result);
-
-    if (result.error) {
-      console.log("[ACTION] Login error:", result.error);
-      return { error: result.error };
-    }
-    console.log("[ACTION] Login successful, redirecting...");
+    await throttle();
+    const result = await loginUser(
+      String(formData.get("email") || "").trim(),
+      String(formData.get("password") || ""),
+    );
+    if (result.error) return { error: result.error };
+    if (result.user?.role !== "admin")
+      return {
+        error: "Akun ini tidak memiliki akses pengelola. Gunakan halaman Chat.",
+      };
   } catch (error) {
-    console.error("[ACTION] Login exception:", error);
-    return { error: "An error occurred during login. Please try again." };
+    return {
+      error:
+        error instanceof HttpError
+          ? error.message
+          : "Layanan masuk belum tersedia. Silakan coba kembali.",
+    };
   }
-
   redirect("/dashboard");
 }
-
 export async function register(formData: FormData) {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const name = formData.get("name") as string;
-
-  if (!email || !password) {
-    return { error: "Email and password are required" };
+  try {
+    await throttle();
+    const result = await registerUser(
+      String(formData.get("email") || ""),
+      String(formData.get("password") || ""),
+      String(formData.get("name") || "").trim() || undefined,
+    );
+    if (result.error) return { error: result.error };
+  } catch (error) {
+    return {
+      error:
+        error instanceof HttpError
+          ? error.message
+          : "Pendaftaran belum tersedia.",
+    };
   }
-
-  if (password.length < 6) {
-    return { error: "Password must be at least 6 characters" };
-  }
-
-  const result = await registerUser(email, password, name || undefined);
-
-  if (result.error) {
-    return { error: result.error };
-  }
-
-  redirect("/dashboard");
+  redirect("/chat");
 }
-
 export async function logout() {
   await deleteSession();
   redirect("/login");

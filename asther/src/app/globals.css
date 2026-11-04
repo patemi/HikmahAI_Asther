@@ -1,178 +1,449 @@
 @import "tailwindcss";
 
+/* The theme is a class on <html> (set by the head script and theme toggles). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Hikmah AI — Pedoman Merek 2.0.
+   Brand colors are fixed; the neutral ramp below swaps between Kertas (light)
+   and Malam (dark) so existing stone-* utilities follow the theme. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --hk-hijau: #0b5232;
+  --hk-hijau-600: #146b40;
+  --hk-hijau-800: #083d26;
+  --hk-hijau-900: #062a1b;
+  --hk-pucuk: #c5ec4f;
+  --hk-pucuk-hover: #d4f27a;
+  --hk-emas: #c79a3f;
+  --hk-emas-tua: #a67e2c;
+  --hk-emas-muda: #d6b263;
+  --hk-tinta: #201e1d;
+  --hk-kertas: #f3f2ef;
+
+  --n-50: #f3f2ef;
+  --n-100: #eae8e3;
+  --n-200: #d9d6cf;
+  --n-300: #c2beb6;
+  --n-400: #9b9797;
+  --n-500: #7d7979;
+  --n-600: #605d5d;
+  --n-700: #444141;
+  --n-800: #2d2b2b;
+  --n-900: #201e1d;
+  --n-950: #141312;
+  --surface: #ffffff;
+
+  /* Primary action: Hijau on Kertas, Pucuk on dark grounds. */
+  --primary: var(--hk-hijau);
+  --primary-hover: var(--hk-hijau-600);
+  --on-primary: var(--hk-kertas);
+  --brand-text: var(--hk-hijau);
+  --wordmark-ai: var(--hk-emas-tua);
+  --rule: var(--hk-tinta);
+  color-scheme: light;
+}
+
+html.dark {
+  --n-50: #062a1b;
+  --n-100: #0a3523;
+  --n-200: #14492f;
+  --n-300: #1d5c3c;
+  --n-400: #6e9c82;
+  --n-500: #a6cdb5;
+  --n-600: #bcdac7;
+  --n-700: #d3e7da;
+  --n-800: #e8f2ec;
+  --n-900: #f3f2ef;
+  --n-950: #ffffff;
+  --surface: #083d26;
+
+  --primary: var(--hk-pucuk);
+  --primary-hover: var(--hk-pucuk-hover);
+  --on-primary: var(--hk-hijau-900);
+  --brand-text: var(--hk-pucuk);
+  --wordmark-ai: var(--hk-emas-muda);
+  --rule: #146b40;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --animate-fade-in-up: fade-in-up 0.8s ease-out both;
-  --animate-fade-in: fade-in 0.6s ease-out both;
-  --animate-gradient: gradient-shift 8s ease infinite;
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-pulse-glow: pulse-glow 4s ease-in-out infinite;
+  --color-background: var(--n-50);
+  --color-foreground: var(--n-900);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-brand: var(--brand-text);
+  --color-rule: var(--rule);
+
+  --color-hijau: var(--hk-hijau);
+  --color-hijau-600: var(--hk-hijau-600);
+  --color-hijau-800: var(--hk-hijau-800);
+  --color-hijau-900: var(--hk-hijau-900);
+  --color-pucuk: var(--hk-pucuk);
+  --color-emas: var(--hk-emas);
+  --color-emas-muda: var(--hk-emas-muda);
+  --color-tinta: var(--hk-tinta);
+  --color-kertas: var(--hk-kertas);
+
+  --color-stone-50: var(--n-50);
+  --color-stone-100: var(--n-100);
+  --color-stone-200: var(--n-200);
+  --color-stone-300: var(--n-300);
+  --color-stone-400: var(--n-400);
+  --color-stone-500: var(--n-500);
+  --color-stone-600: var(--n-600);
+  --color-stone-700: var(--n-700);
+  --color-stone-800: var(--n-800);
+  --color-stone-900: var(--n-900);
+  --color-stone-950: var(--n-950);
+
+  --color-emerald-50: #e8f2ec;
+  --color-emerald-100: #cfe4d7;
+  --color-emerald-200: #a6cdb5;
+  --color-emerald-300: #c5ec4f;
+  --color-emerald-400: #6fae89;
+  --color-emerald-500: #2e8a57;
+  --color-emerald-600: #146b40;
+  --color-emerald-700: #0b5232;
+  --color-emerald-800: #083d26;
+  --color-emerald-900: #062a1b;
+
+  /* Soft, friendly geometry: controls are rounded, surfaces are generous. */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 32px;
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Not inline: these resolve on <html>, where next/font sets its variables. */
+@theme {
+  --font-sans: var(--font-archivo), var(--font-quran), system-ui, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  --font-kufi: var(--font-noto-kufi), var(--font-archivo), sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--n-50);
+  color: var(--n-900);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-html.dark body {
-  background: #0b0b0b;
-  color: #e7e5e4;
+::selection {
+  background: var(--hk-pucuk);
+  color: var(--hk-hijau-900);
 }
 
+/* White cards and fields sit on Kertas; on the Malam ground they become Hijau 800.
+   Fixed-palette illustrations (chat mockups, stickers) keep dark text in both
+   themes, so they use bg-[#fff] to opt out of this swap. */
 html.dark .bg-white {
-  background-color: #111111;
+  background-color: var(--surface);
 }
 
-html.dark .bg-stone-50 {
-  background-color: #0b0b0b;
+/* Status tints keep their meaning without glaring on the dark ground. */
+html.dark .bg-emerald-50,
+html.dark .bg-green-100 {
+  background-color: #0e4a2f;
+}
+html.dark .bg-red-50,
+html.dark .bg-red-100 {
+  background-color: #3a1512;
+}
+html.dark .bg-blue-100 {
+  background-color: #10304a;
+}
+html.dark :is(.text-emerald-700, .text-emerald-800, .text-green-700) {
+  color: var(--hk-pucuk);
+}
+html.dark :is(.text-red-600, .text-red-700) {
+  color: #ff9a8a;
+}
+html.dark :is(.border-red-200) {
+  border-color: #6b2a22;
+}
+html.dark :is(.border-emerald-200) {
+  border-color: #146b40;
 }
 
-html.dark .bg-stone-100 {
-  background-color: #1a1a1a;
+/* Display type: Archivo Expanded, as used for headings and the wordmark. */
+@utility font-display {
+  font-weight: 900;
+  font-stretch: 118%;
+  letter-spacing: -0.045em;
+}
+@utility font-heading {
+  font-weight: 800;
+  font-stretch: 110%;
+  letter-spacing: -0.02em;
+}
+@utility label-caps {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-html.dark .bg-stone-900 {
-  background-color: #1c1917;
+/* Single-color brand symbol drawn through a mask, colored by background. */
+@utility brand-symbol {
+  -webkit-mask: url("/brand/symbol.png") center / contain no-repeat;
+  mask: url("/brand/symbol.png") center / contain no-repeat;
 }
 
-html.dark .text-stone-900 {
-  color: #f5f5f4;
+/* ===== Motion =====
+   Only transform and opacity animate, so motion stays on the compositor.
+   Everything below is skipped for people who prefer reduced motion. */
+@utility surface-card {
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--n-900) 9%, transparent);
+  border-radius: 24px;
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--n-900) 6%, transparent),
+    0 8px 24px -12px color-mix(in srgb, var(--n-900) 18%, transparent);
 }
 
-html.dark .text-stone-800 {
-  color: #e7e5e4;
-}
-
-html.dark .text-stone-700 {
-  color: #d6d3d1;
-}
-
-html.dark .text-stone-600 {
-  color: #a8a29e;
-}
-
-html.dark .text-stone-500 {
-  color: #a8a29e;
-}
-
-html.dark .text-stone-400 {
-  color: #78716c;
-}
-
-html.dark .border-stone-200 {
-  border-color: #292524;
-}
-
-html.dark .border-stone-300 {
-  border-color: #3f3f46;
-}
-
-html.dark .border-stone-100 {
-  border-color: #1f1f1f;
-}
-
-/* ===== User-facing page animations ===== */
-@keyframes fade-in-up {
+@keyframes hk-rise {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translate3d(0, 18px, 0) scale(0.985);
   }
   to {
     opacity: 1;
+    transform: none;
+  }
+}
+@keyframes hk-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes hk-float {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) rotate(-2deg);
+  }
+}
+@keyframes hk-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(-18px, 10px, 0) scale(1.04);
+  }
+}
+@keyframes hk-bounce-dot {
+  0%,
+  60%,
+  100% {
     transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
+}
+@keyframes hk-wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-8deg);
+  }
+  75% {
+    transform: rotate(8deg);
   }
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+@media (prefers-reduced-motion: no-preference) {
+  /* Scroll reveal: Reveal.tsx adds .is-visible once, then stops observing. */
+  /* "backwards" holds the start frame during the delay and then releases
+     transform, so hover effects like .lift keep their own fast transition. */
+  .js [data-reveal]:not(.is-visible) {
+    opacity: 0;
+  }
+  .js [data-reveal].is-visible {
+    animation: hk-rise 0.8s var(--ease-out-soft) backwards;
+    animation-delay: calc(var(--d, 0) * 90ms);
+  }
+
+  /* Stickers pop in with a little overshoot. Tailwind's rotate-* uses the
+     separate `rotate` property, so the tilt survives the transform keyframes. */
+  .pop-in {
+    animation: hk-pop 0.7s var(--ease-spring) backwards;
+    animation-delay: calc(250ms + var(--d, 0) * 90ms);
+  }
+
+  /* Page entrance for app screens: children rise in a short stagger. */
+  .stagger-in > * {
+    animation: hk-rise 0.6s var(--ease-out-soft) backwards;
+  }
+  .stagger-in > :nth-child(2) {
+    animation-delay: 60ms;
+  }
+  .stagger-in > :nth-child(3) {
+    animation-delay: 120ms;
+  }
+  .stagger-in > :nth-child(4) {
+    animation-delay: 180ms;
+  }
+  .stagger-in > :nth-child(n + 5) {
+    animation-delay: 240ms;
+  }
+
+  /* FAQ answers slide in when their <details> opens. */
+  .faq-item[open] > .faq-body {
+    animation: hk-rise 0.4s var(--ease-out-soft);
+  }
+
+  .float-slow {
+    animation: hk-float 7s ease-in-out infinite;
+  }
+  .drift-slow {
+    animation: hk-drift 14s ease-in-out infinite;
+  }
+
+  /* Lift on hover for cards and tiles. */
+  .lift {
+    transition:
+      transform 0.35s var(--ease-spring),
+      box-shadow 0.35s var(--ease-out-soft);
+  }
+  .lift:hover {
+    transform: translate3d(0, -4px, 0);
+    box-shadow:
+      0 2px 4px color-mix(in srgb, var(--n-900) 6%, transparent),
+      0 22px 40px -18px color-mix(in srgb, var(--n-900) 30%, transparent);
+  }
+
+  /* Pressable controls squish slightly; arrows nudge forward on hover. */
+  .press {
+    transition:
+      transform 0.3s var(--ease-spring),
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .press:hover {
+    transform: translate3d(0, -1px, 0);
+  }
+  .press:active {
+    transform: scale(0.96);
+    transition-duration: 0.1s;
+  }
+  .press svg {
+    transition: transform 0.35s var(--ease-spring);
+  }
+  .press:hover svg {
+    transform: translate3d(3px, 0, 0);
+  }
+  .wiggle-hover:hover {
+    animation: hk-wiggle 0.5s ease-in-out;
+  }
 }
 
-@keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+/* Dashboard surfaces. Unlayered rules win over Tailwind's utility layer, so
+   every card, field, and primary button gets the same soft shape without
+   editing each page. */
+.dash :where(.bg-white.border, .bg-white.border-stone-200) {
+  border-radius: 22px;
+  border-color: color-mix(in srgb, var(--n-900) 9%, transparent);
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--n-900) 5%, transparent),
+    0 10px 28px -18px color-mix(in srgb, var(--n-900) 22%, transparent);
+  transition: box-shadow 0.3s ease;
+}
+.dash :where(.bg-white.border, .bg-white.border-stone-200):hover {
+  box-shadow:
+    0 1px 2px color-mix(in srgb, var(--n-900) 6%, transparent),
+    0 18px 36px -20px color-mix(in srgb, var(--n-900) 32%, transparent);
+}
+.dash :where(input:not([type="checkbox"], [type="radio"]), select, textarea) {
+  border-radius: 12px;
+}
+.dash :where(.bg-primary, .bg-red-600, .bg-red-700) {
+  border-radius: 999px;
+}
+.dash :where(table) {
+  border-radius: 16px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dash > * > * {
+    animation: hk-rise 0.55s var(--ease-out-soft) backwards;
+  }
+  .dash > * > :nth-child(2) {
+    animation-delay: 60ms;
+  }
+  .dash > * > :nth-child(3) {
+    animation-delay: 120ms;
+  }
+  .dash > * > :nth-child(n + 4) {
+    animation-delay: 180ms;
+  }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+/* Global button feedback, cheap and consistent across dashboard pages. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, [role="button"]):not(:disabled) {
+    transition:
+      transform 0.25s var(--ease-spring),
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  :where(button, [role="button"]):not(:disabled):active {
+    transform: scale(0.97);
+  }
 }
 
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.7; transform: scale(1.05); }
+@keyframes hk-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@keyframes hk-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+.hk-marquee {
+  animation: hk-marquee 40s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hk-marquee {
+    animation: none;
+  }
 }
 
-/* Chat custom scrollbar */
-.chat-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-.chat-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-.chat-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(45, 212, 168, 0.1);
-  border-radius: 3px;
-}
-.chat-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(45, 212, 168, 0.2);
-}
-
-/* ===== Gradient border (CSS mask technique) ===== */
-.gradient-border {
-  position: relative;
-}
-.gradient-border::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(45,212,168,0.25), transparent 40%, transparent 60%, rgba(212,167,45,0.15));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ===== Single-play shimmer ===== */
-.shimmer-once {
-  background: linear-gradient(90deg, transparent 0%, rgba(45,212,168,0.06) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: shimmer 1.8s ease-out 0.5s 1 both;
-}
-@keyframes shimmer {
-  from { background-position: 200% 0; }
-  to { background-position: -200% 0; }
-}
-
-/* ===== Slow spin for ornaments ===== */
-.animate-spin-slow {
-  animation: spin-slow 60s linear infinite;
-}
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* ===== Blink cursor ===== */
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }

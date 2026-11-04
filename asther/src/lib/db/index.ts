@@ -9,7 +9,16 @@ if (!connectionString) {
 }
 
 // Create postgres connection
-const client = postgres(connectionString);
+const namespace = process.env.DATABASE_SCHEMA || "public";
+if (!/^[a-z_][a-z0-9_]*$/.test(namespace))
+  throw new Error("Invalid database schema");
+const client = postgres(connectionString, {
+  max: 10,
+  onnotice: process.env.NODE_ENV === "test" ? () => {} : undefined,
+  connect_timeout: 5,
+  idle_timeout: 20,
+  connection: { search_path: namespace + ",public" },
+});
 
 // Create drizzle database instance
 export const db = drizzle(client, { schema });

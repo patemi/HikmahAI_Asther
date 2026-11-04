@@ -8,7 +8,7 @@ services:
       - "5435:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-astheron}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-supersmart}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-asther}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -28,11 +28,20 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-astheron}:${POSTGRES_PASSWORD:-supersmart}@postgres:5432/${POSTGRES_DB:-asther}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-astheron}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-asther}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_BASE_URL=${GEMINI_BASE_URL:-https://generativelanguage.googleapis.com/v1beta/openai/}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - DEFAULT_USERNAME=${DEFAULT_USERNAME:-asther}
       - DEFAULT_PASSWORD=${DEFAULT_PASSWORD:-admin}
       - MEMORY_LENGTH=${MEMORY_LENGTH:-5}
+      - APP_URL=${APP_URL:-http://localhost:5000}
+      - CHAT_REQUESTS_PER_MINUTE=${CHAT_REQUESTS_PER_MINUTE:-10}
+      - CHAT_REQUESTS_PER_DAY=${CHAT_REQUESTS_PER_DAY:-100}
+      - MODEL_REQUESTS_PER_DAY=${MODEL_REQUESTS_PER_DAY:-2000}
+      - MODEL_TOKENS_PER_DAY=${MODEL_TOKENS_PER_DAY:-500000}
+      - TRUST_PROXY=${TRUST_PROXY:-false}
+      - CHAT_RETENTION_DAYS=${CHAT_RETENTION_DAYS:-0}
       - BEARER_TOKEN=${BEARER_TOKEN}
       - BASE_URL=${BASE_URL}
       - SESSION_SECRET=${SESSION_SECRET}

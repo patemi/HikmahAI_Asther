@@ -1,0 +1,2 @@
+CREATE INDEX "knowledge_documents_created_at_idx" ON "knowledge_documents" USING btree ("created_at","id");--> statement-breakpoint
+CREATE INDEX "knowledge_documents_status_created_at_idx" ON "knowledge_documents" USING btree ("status","created_at");

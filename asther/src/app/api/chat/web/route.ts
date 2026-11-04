@@ -1,56 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { handleChatRequest } from "@/lib/chat-handler";
+import { assertSameOrigin, errorResponse, HttpError } from "@/lib/http";
 
-export async function POST(request: NextRequest) {
+export async function POST(request: Request) {
   try {
+    assertSameOrigin(request);
     const user = await getSession();
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const payload = await request.json();
-    const body = JSON.stringify({
-      ...payload,
-      userId: user.id,
-      userName: payload?.userName || user.name || user.email,
-    });
-    const token = process.env.BEARER_TOKEN || "changeme";
-
-    const upstreamUrl = new URL("/api/chat", request.url);
-    const upstream = await fetch(upstreamUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body,
-      cache: "no-store",
-    });
-
-    if (!upstream.body) {
-      const text = await upstream.text();
-      return new NextResponse(text, {
-        status: upstream.status,
-        headers: {
-          "Content-Type": upstream.headers.get("content-type") || "application/json",
-        },
-      });
-    }
-
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: {
-        "Content-Type": upstream.headers.get("content-type") || "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
-    });
+    if (!user) throw new HttpError(401, "Silakan masuk terlebih dahulu.");
+    return handleChatRequest(request, { user });
   } catch (error) {
-    console.error("Web chat proxy error:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return errorResponse(error);
   }
-}
-
-export async function OPTIONS() {
-  return new NextResponse(null, { status: 204 });
 }

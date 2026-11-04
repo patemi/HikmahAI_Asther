@@ -1,121 +1,118 @@
 "use server";
-
+import { requireAdmin } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
-import { getSession } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import {
   runEvaluation,
-  getEvaluationRuns,
   getEvaluationRun,
+  getEvaluationRuns,
   deleteEvaluationRun,
 } from "@/lib/evaluation";
 import { eq } from "drizzle-orm";
-
-// ─── Auth guard ──────────────────────────────────────────────
-
-async function requireAuth() {
-  const session = await getSession();
-  if (!session) redirect("/login");
-  return session;
-}
-
-// ─── Test Case Management ────────────────────────────────────
-
-export async function getTestCases() {
-  await requireAuth();
-  return db.query.evaluationTestCases.findMany({
-    orderBy: (tc, { desc }) => [desc(tc.createdAt)],
-  });
-}
-
-export async function addTestCase(formData: FormData) {
-  await requireAuth();
-
-  const query = (formData.get("query") as string)?.trim();
-  const category = (formData.get("category") as string)?.trim() || null;
-  const expectedDocIdsRaw = (formData.get("expectedDocumentIds") as string)?.trim();
-
-  if (!query) {
-    return { error: "Query is required." };
-  }
-
-  const expectedDocumentIds = expectedDocIdsRaw
-    ? expectedDocIdsRaw.split(",").map((id) => id.trim()).filter(Boolean)
-    : [];
-
-  await db.insert(schema.evaluationTestCases).values({
-    query,
-    category,
-    expectedDocumentIds,
-  });
-
+import { z } from "zod";
+import { revalidatePath } from "next/cache";
+import { consumeLimit } from "@/lib/limits";
+const testSchema = z.object({
+  query: z.string().trim().min(1).max(8000),
+  category: z.string().trim().max(100).optional(),
+  referenceAnswer: z.string().trim().max(12000).optional(),
+  expectedDocumentIds: z.array(z.uuid()).max(30).default([]),
+  expectedBehavior: z
+    .enum(["answer", "abstain", "out_of_scope"])
+    .default("answer"),
+});
+function refresh() {
   revalidatePath("/dashboard/evaluation");
+}
+export async function getTestCases() {
+  await requireAdmin();
+  return db.query.evaluationTestCases.findMany({
+    orderBy: (t, { desc }) => [desc(t.createdAt)],
+    limit: 100,
+  });
+}
+export async function addTestCase(form: FormData) {
+  const admin = await requireAdmin();
+  const parsed = testSchema.safeParse({
+    query: form.get("query"),
+    category: form.get("category") || undefined,
+    referenceAnswer: form.get("referenceAnswer") || undefined,
+    expectedDocumentIds: String(form.get("expectedDocumentIds") || "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean),
+    expectedBehavior: form.get("expectedBehavior") || "answer",
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  if (form.get("reviewed") !== "on")
+    return { error: "Konfirmasi peninjauan kasus uji terlebih dahulu." };
+  if (parsed.data.expectedBehavior === "answer" && !parsed.data.referenceAnswer)
+    return { error: "Jawaban acuan wajib diisi." };
+  const data = {
+    ...parsed.data,
+    reviewedBy: admin.name || admin.email,
+    reviewedAt: new Date(),
+  };
+  const id = form.get("id");
+  if (id) {
+    if (!z.uuid().safeParse(id).success)
+      return { error: "ID kasus tidak valid." };
+    await db
+      .update(schema.evaluationTestCases)
+      .set(data)
+      .where(eq(schema.evaluationTestCases.id, String(id)));
+  } else await db.insert(schema.evaluationTestCases).values(data);
+  refresh();
   return { success: true };
 }
-
 export async function deleteTestCase(id: string) {
-  await requireAuth();
-
+  await requireAdmin();
+  z.uuid().parse(id);
   await db
     .delete(schema.evaluationTestCases)
     .where(eq(schema.evaluationTestCases.id, id));
-
-  revalidatePath("/dashboard/evaluation");
-  return { success: true };
+  refresh();
 }
-
-export async function importTestCases(
-  cases: Array<{ query: string; category?: string; expectedDocumentIds?: string[] }>
-) {
-  await requireAuth();
-
-  let imported = 0;
-  for (const tc of cases) {
-    if (!tc.query?.trim()) continue;
-
-    await db.insert(schema.evaluationTestCases).values({
-      query: tc.query.trim(),
-      category: tc.category?.trim() || null,
-      expectedDocumentIds: tc.expectedDocumentIds ?? [],
-    });
-    imported++;
-  }
-
-  revalidatePath("/dashboard/evaluation");
-  return { success: true, imported };
+export async function importTestCases(input: unknown) {
+  await requireAdmin();
+  const parsed = z.array(testSchema).min(1).max(50).safeParse(input);
+  if (!parsed.success)
+    return {
+      error:
+        "JSON harus berisi maksimal 50 kasus dengan query dan ID dokumen yang valid.",
+    };
+  await db.insert(schema.evaluationTestCases).values(parsed.data);
+  refresh();
+  return { success: true, imported: parsed.data.length };
 }
-
-// ─── Evaluation Runs ─────────────────────────────────────────
-
-export async function startEvaluation(formData: FormData) {
-  await requireAuth();
-
-  const name = (formData.get("name") as string)?.trim() || undefined;
-
+export async function startEvaluation(form: FormData) {
+  const admin = await requireAdmin();
   try {
-    const result = await runEvaluation(name);
-    revalidatePath("/dashboard/evaluation");
-    return { success: true, runId: result.runId, metrics: result.metrics };
+    await consumeLimit("evaluation", admin.id, 1, 600);
+    const result = await runEvaluation(
+      String(form.get("name") || "")
+        .trim()
+        .slice(0, 200) || undefined,
+    );
+    refresh();
+    return { success: true, ...result };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Evaluation failed";
-    return { error: message };
+    return {
+      error: error instanceof Error ? error.message : "Evaluasi gagal.",
+    };
   }
 }
-
 export async function fetchEvaluationRuns() {
-  await requireAuth();
+  await requireAdmin();
   return getEvaluationRuns();
 }
-
-export async function fetchEvaluationRun(runId: string) {
-  await requireAuth();
-  return getEvaluationRun(runId);
+export async function fetchEvaluationRun(id: string) {
+  await requireAdmin();
+  z.uuid().parse(id);
+  return getEvaluationRun(id);
 }
-
-export async function removeEvaluationRun(runId: string) {
-  await requireAuth();
-  await deleteEvaluationRun(runId);
-  revalidatePath("/dashboard/evaluation");
-  return { success: true };
+export async function removeEvaluationRun(id: string) {
+  await requireAdmin();
+  z.uuid().parse(id);
+  await deleteEvaluationRun(id);
+  refresh();
 }

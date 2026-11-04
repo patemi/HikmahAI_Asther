@@ -1,9 +1,9 @@
+import { requireAdminPage } from "@/lib/auth";
 import { headers } from "next/headers";
-import { getAppConfig } from "@/lib/app-config";
 import ApiDocsClient from "./ApiDocsClient";
 
 export default async function ApiDocsPage() {
-  const config = await getAppConfig();
+  await requireAdminPage();
   const headerList = await headers();
   const forwardedProto = headerList.get("x-forwarded-proto");
   const forwardedHost = headerList.get("x-forwarded-host");
@@ -13,12 +13,10 @@ export default async function ApiDocsPage() {
     : "http://localhost:5000";
 
   const baseUrl =
-    config?.baseUrl?.trim() ||
-    process.env.BASE_URL ||
-    process.env.NEXT_PUBLIC_BASE_URL ||
+    process.env.APP_URL ||
     inferredBaseUrl;
 
-  const bearerToken = process.env.BEARER_TOKEN || "YOUR_API_KEY";
+  const bearerToken = "YOUR_API_KEY";
 
   return <ApiDocsClient baseUrl={baseUrl} bearerToken={bearerToken} />;
 }

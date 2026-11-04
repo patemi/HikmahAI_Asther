@@ -1,8 +1,10 @@
+import { requireAdminPage } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
 import { getAppConfig } from "@/lib/app-config";
 import { sql } from "drizzle-orm";
 
 export default async function DashboardPage() {
+  await requireAdminPage();
   // Get statistics
   const [participantCount] = await db
     .select({ count: sql<number>`count(*)` })
@@ -20,7 +22,7 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-stone-900 mb-6 text-balance">Dashboard</h1>
+      <h1 className="font-display text-3xl leading-none text-stone-900 mb-6 text-balance">Dashboard</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-lg p-5 border border-stone-200">
@@ -54,11 +56,11 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg p-5 border border-stone-200">
-          <h2 className="text-base font-semibold text-stone-900 mb-4">Bot Configuration</h2>
+          <h2 className="text-base font-heading text-stone-900 mb-4">Bot Configuration</h2>
           <dl className="space-y-2.5 text-sm">
             <div className="flex justify-between">
               <dt className="text-stone-500">Bot Name</dt>
-              <dd className="text-stone-900 font-medium">{config?.botName || "Asther"}</dd>
+              <dd className="text-stone-900 font-medium">{config?.botName || "Hikmah AI"}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-stone-500">Text Model</dt>
@@ -88,7 +90,7 @@ export default async function DashboardPage() {
         </div>
 
         <div className="bg-white rounded-lg p-5 border border-stone-200">
-          <h2 className="text-base font-semibold text-stone-900 mb-4">Quick Links</h2>
+          <h2 className="text-base font-heading text-stone-900 mb-4">Quick Links</h2>
           <div className="space-y-2">
             <a
               href="/dashboard/demo"

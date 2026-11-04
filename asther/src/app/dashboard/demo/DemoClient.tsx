@@ -1,6 +1,8 @@
 "use client";
+import Image from "next/image";
 
 import { useState, useRef, useEffect } from "react";
+import { readSseEvents } from "@/lib/sse";
 
 interface Message {
   role: "user" | "assistant";
@@ -8,7 +10,7 @@ interface Message {
   imageUrl?: string;
 }
 
-export default function DemoClient({ bearerToken }: { bearerToken: string }) {
+export default function DemoClient() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -22,7 +24,7 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
     // Generate a demo participantId (not persisted to DB)
     const storedId = sessionStorage.getItem("demo-participant-id");
     const storedName = sessionStorage.getItem("demo-user-name");
-    
+
     if (storedId) {
       setParticipantId(storedId);
     } else {
@@ -30,7 +32,7 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
       sessionStorage.setItem("demo-participant-id", newId);
       setParticipantId(newId);
     }
-    
+
     if (storedName) {
       setUserName(storedName);
     }
@@ -54,21 +56,23 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
     setInput("");
     setImageUrl("");
     setShowImageInput(false);
-    
+
     // Add user message with optional image
-    setMessages((prev) => [...prev, { 
-      role: "user", 
-      content: userMessage,
-      imageUrl: currentImageUrl 
-    }]);
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "user",
+        content: userMessage,
+        imageUrl: currentImageUrl,
+      },
+    ]);
     setLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch("/api/chat/web", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${bearerToken}`,
         },
         body: JSON.stringify({
           participantId: activeParticipantId,
@@ -83,52 +87,41 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No reader");
-
-      const decoder = new TextDecoder();
+      if (!response.body) throw new Error("Respons layanan kosong.");
       let assistantMessage = "";
-
+      let complete = false;
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const text = decoder.decode(value);
-        const lines = text.split("\n");
-
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            if (data === "[DONE]") break;
-
-            try {
-              const { content } = JSON.parse(data);
-              if (content) {
-                assistantMessage += content;
-                setMessages((prev) => {
-                  const newMessages = [...prev];
-                  newMessages[newMessages.length - 1] = {
-                    role: "assistant",
-                    content: assistantMessage,
-                  };
-                  return newMessages;
-                });
-              }
-            } catch {
-              // Skip invalid JSON
-            }
-          }
+      for await (const data of readSseEvents(response.body)) {
+        if (data === "[DONE]") {
+          complete = true;
+          break;
+        }
+        const payload = JSON.parse(data) as {
+          type?: string;
+          content?: string;
+          error?: string;
+        };
+        if (payload.type === "error")
+          throw new Error(payload.error || "Jawaban belum selesai.");
+        if (payload.content) {
+          assistantMessage += payload.content;
+          setMessages((prev) => [
+            ...prev.slice(0, -1),
+            { role: "assistant", content: assistantMessage },
+          ]);
         }
       }
+      if (!complete) throw new Error("Respons terputus sebelum selesai.");
     } catch (error) {
       console.error("Chat error:", error);
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "Sorry, there was an error processing your message.",
+          content:
+            error instanceof Error
+              ? error.message
+              : "Jawaban belum dapat diproses.",
         },
       ]);
     } finally {
@@ -137,6 +130,7 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
   }
 
   function clearChat() {
+    if (loading) return;
     setMessages([]);
     // Generate new participantId to start fresh (still not saved to DB)
     const newId = `demo-${Date.now()}`;
@@ -154,8 +148,10 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
     <div className="flex flex-col h-[calc(100vh-12rem)]">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h1 className="text-xl font-semibold text-stone-900">Demo</h1>
-          <p className="text-stone-500 text-sm">Test the chatbot and RAG system</p>
+          <h1 className="font-display text-3xl leading-none text-stone-900">Demo</h1>
+          <p className="text-stone-500 text-sm">
+            Test the chatbot and RAG system
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <input
@@ -164,7 +160,7 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
             onChange={handleUserNameChange}
             placeholder="Your name (optional)"
             suppressHydrationWarning
-            className="px-3 py-1.5 text-sm bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent w-40"
+            className="px-3 py-1.5 text-sm bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-40"
           />
           <button
             onClick={clearChat}
@@ -179,7 +175,9 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 && (
             <div className="text-center text-stone-400 py-12">
-              <p className="text-sm">Send a message to start the conversation</p>
+              <p className="text-sm">
+                Send a message to start the conversation
+              </p>
               <p className="text-xs mt-2 text-stone-500">
                 💡 Make sure RAG is enabled in Config to use knowledge base
               </p>
@@ -200,15 +198,18 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
               <div
                 className={`max-w-[80%] px-4 py-2.5 rounded-lg text-sm ${
                   message.role === "user"
-                    ? "bg-stone-900 text-white"
+                    ? "bg-primary text-on-primary font-bold"
                     : "bg-stone-100 text-stone-900"
                 }`}
               >
                 {message.imageUrl && (
                   <div className="mb-2">
-                    <img 
-                      src={message.imageUrl} 
-                      alt="User uploaded" 
+                    <Image
+                      width={640}
+                      height={480}
+                      unoptimized
+                      src={message.imageUrl}
+                      alt="User uploaded"
                       className="max-w-full max-h-48 rounded object-contain"
                     />
                   </div>
@@ -241,7 +242,7 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
                 value={imageUrl}
                 onChange={(e) => setImageUrl(e.target.value)}
                 placeholder="Enter image URL..."
-                className="flex-1 px-3 py-2 text-sm bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent"
+                className="flex-1 px-3 py-2 text-sm bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               />
               <button
                 type="button"
@@ -251,16 +252,35 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
                 }}
                 className="px-3 py-2 text-stone-500 hover:text-stone-700"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               </button>
             </div>
           )}
           {imageUrl && (
             <div className="mb-3 p-2 bg-stone-50 rounded-md flex items-center gap-2">
-              <img src={imageUrl} alt="Preview" className="h-12 w-12 object-cover rounded" />
-              <span className="text-xs text-stone-500 truncate flex-1">{imageUrl}</span>
+              <Image
+                width={640}
+                height={480}
+                unoptimized
+                src={imageUrl}
+                alt="Preview"
+                className="h-12 w-12 object-cover rounded"
+              />
+              <span className="text-xs text-stone-500 truncate flex-1">
+                {imageUrl}
+              </span>
             </div>
           )}
           <div className="flex gap-2">
@@ -271,8 +291,18 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
               className="px-3 py-2 text-stone-500 hover:text-stone-700 hover:bg-stone-100 rounded-md disabled:opacity-50"
               title="Add image URL"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
               </svg>
             </button>
             <input
@@ -282,12 +312,12 @@ export default function DemoClient({ bearerToken }: { bearerToken: string }) {
               placeholder="Type your message..."
               disabled={loading}
               suppressHydrationWarning
-              className="flex-1 px-3 py-2 bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900 focus:border-transparent disabled:bg-stone-50"
+              className="flex-1 px-3 py-2 bg-white border border-stone-300 rounded-md text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-stone-50"
             />
             <button
               type="submit"
               disabled={loading || !input.trim()}
-              className="px-4 py-2 bg-stone-900 hover:bg-stone-800 disabled:bg-stone-300 text-white font-medium rounded-md"
+              className="px-4 py-2 bg-primary hover:bg-primary-hover disabled:opacity-50 text-on-primary font-bold rounded-md"
             >
               Send
             </button>

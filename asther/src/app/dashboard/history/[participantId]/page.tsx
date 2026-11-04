@@ -1,3 +1,6 @@
+import Image from "next/image";
+import { requireAdminPage } from "@/lib/auth";
+import Link from "next/link";
 import { db, schema } from "@/lib/db";
 import { eq, asc } from "drizzle-orm";
 import { notFound } from "next/navigation";
@@ -7,6 +10,7 @@ interface Props {
 }
 
 export default async function ParticipantHistoryPage({ params }: Props) {
+  await requireAdminPage();
   const { participantId } = await params;
 
   const participant = await db.query.chatParticipants.findFirst({
@@ -25,16 +29,26 @@ export default async function ParticipantHistoryPage({ params }: Props) {
   return (
     <div className="space-y-8">
       <div>
-        <a
+        <Link
           href="/dashboard/history"
           className="text-stone-500 hover:text-stone-700 text-sm mb-2 inline-flex items-center gap-1"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
           Back to History
-        </a>
-        <h1 className="text-2xl font-semibold text-stone-900">
+        </Link>
+        <h1 className="font-display text-3xl leading-none text-stone-900">
           {participant.name || participant.externalId}
         </h1>
         <p className="text-stone-500 text-sm">ID: {participant.externalId}</p>
@@ -58,19 +72,27 @@ export default async function ParticipantHistoryPage({ params }: Props) {
               <div className="flex justify-between items-start mb-2">
                 <span
                   className={`text-xs font-medium ${
-                    message.role === "user" ? "text-stone-700" : "text-stone-500"
+                    message.role === "user"
+                      ? "text-stone-700"
+                      : "text-stone-500"
                   }`}
                 >
                   {message.role === "user" ? "User" : "Assistant"}
+                  {!message.isActive && " · Versi sebelumnya"}
                 </span>
                 <span className="text-stone-400 text-xs">
                   {new Date(message.createdAt).toLocaleString()}
                 </span>
               </div>
-              <p className="text-stone-800 whitespace-pre-wrap">{message.content}</p>
+              <p className="text-stone-800 whitespace-pre-wrap">
+                {message.content}
+              </p>
               {message.imageUrl && (
                 <div className="mt-2">
-                  <img
+                  <Image
+                    width={640}
+                    height={480}
+                    unoptimized
                     src={message.imageUrl}
                     alt="User uploaded"
                     className="max-w-xs rounded border border-stone-200"
@@ -82,11 +104,13 @@ export default async function ParticipantHistoryPage({ params }: Props) {
                   )}
                 </div>
               )}
-              {message.role === "assistant" && (message.promptTokens || message.completionTokens) && (
-                <p className="text-stone-400 text-xs mt-2">
-                  Tokens: {message.promptTokens} prompt, {message.completionTokens} completion
-                </p>
-              )}
+              {message.role === "assistant" &&
+                (message.promptTokens || message.completionTokens) && (
+                  <p className="text-stone-400 text-xs mt-2">
+                    Tokens: {message.promptTokens} prompt,{" "}
+                    {message.completionTokens} completion
+                  </p>
+                )}
             </div>
           ))}
         </div>

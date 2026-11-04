@@ -48,7 +48,7 @@ export default function HistoryClient({ participants }: HistoryClientProps) {
         />
       )}
       <div>
-        <h1 className="text-2xl font-semibold text-stone-900">Chat History</h1>
+        <h1 className="font-display text-3xl leading-none text-stone-900">Chat History</h1>
         <p className="text-sm text-stone-500 mt-1">
           View and manage conversation history from all participants
         </p>

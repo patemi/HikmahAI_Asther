@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "feedback_reporter_message_unique" ON "answer_feedback" USING btree ("reporter_id","message_id");

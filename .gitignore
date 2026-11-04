@@ -1,43 +1,83 @@
-# Dependencies
+# Dependencies and package-manager caches (keep bun.lock tracked)
 node_modules/
 .bun/
+.pnpm-store/
 
-# Build outputs
+# Build outputs and tool caches
+.next/
+out/
+build/
 dist/
 .output/
 .vinxi/
 .cache/
+.turbo/
+.vercel/
+*.tsbuildinfo
 
-# Environment
+# Local environment and credentials (only placeholder templates may be committed)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+.npmrc
+.netrc
 
-# IDE
+# Local database files and backups (keep SQL migrations and Drizzle metadata)
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+backups/
+/postgres/data/
+/postgres/pgdata/
+
+# Test output and browser verification artifacts (keep test source files)
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+.playwright-mcp/
+
+# Logs and temporary files
+*.log
+logs/
+*.tmp
+*.temp
+
+# Editor and operating-system files
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# OS
+*~
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# Logs
-*.log
-logs/
-
-# Drizzle
-drizzle/meta/
-
-# TypeScript
-*.tsbuildinfo
-
-# Testing
-coverage/
-
-# Agent
+# Local AI-agent configuration and session artifacts (keep GitHub workflows)
 .agent/
 .agents/
 .claude/
-.github/
+.superpowers/
+.github/skills/
+/skills-lock.json
+/dev/prompt.txt
+
+# Local academic documents and presentation output; application assets stay tracked
+/*.pdf
+/*.doc
+/*.docx
+/*.ppt
+/*.pptx
+/ppt-slides/
+/build-pptx.js
+/hasil_dan_pembahasan.md

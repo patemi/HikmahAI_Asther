@@ -1,690 +1,627 @@
 "use client";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import { useChat, apiError } from "./useChat";
+import { useChatTheme } from "./useChatTheme";
+import { useChatSpeech } from "./useChatSpeech";
+import ChatSidebar from "./ChatSidebar";
+import ChatComposer from "./ChatComposer";
+import ChatMessageRow from "./ChatMessageRow";
+import ConversationSearch from "./ConversationSearch";
+import ChatSettings from "./ChatSettings";
+import ShareDialog from "./ShareDialog";
+import ChatIcon from "./ChatIcon";
+import SourceDialog from "./SourceDialog";
+import ReportAnswer from "@/components/ReportAnswer";
+import type { Citation } from "@/lib/citations";
+import { Wordmark } from "@/components/BrandLogo";
+import styles from "./Chat.module.css";
 
-import { useState, useRef, useEffect, useCallback } from "react";
-import Link from "next/link";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  citations?: CitationItem[];
-  citationNotice?: string;
+const modes = [
+  {
+    id: "ringkas",
+    name: "Ringkas",
+    description: "Jawaban singkat dan langsung",
+  },
+  {
+    id: "standar",
+    name: "Seimbang",
+    description: "Penjelasan dengan konteks secukupnya",
+  },
+  {
+    id: "mendalam",
+    name: "Mendalam",
+    description: "Pembahasan lebih rinci dan bernuansa",
+  },
+] as const;
+// Topic chips from the brand guideline; each pre-fills a sample question.
+const starters = [
+  { label: "Fikih", question: "Boleh nggak jamak salat pas lagi kuliah lapangan?" },
+  { label: "Sirah", question: "Kenapa hijrah ke Madinah jadi awal kalender Hijriah?" },
+  { label: "Tafsir", question: "Apa makna sabar dalam Al-Qur'an?" },
+  { label: "Hadis", question: "Apa maksud hadis tentang niat, innamal a'malu binniyat?" },
+  { label: "Akhlak", question: "Bagaimana menjaga adab ketika berbeda pendapat?" },
+  { label: "Muamalah", question: "Paylater itu riba nggak?" },
+] as const;
+function subscribeDesktop(callback: () => void) {
+  const media = window.matchMedia("(min-width: 768px)");
+  media.addEventListener("change", callback);
+  return () => media.removeEventListener("change", callback);
 }
-
-interface CitationItem {
-  title: string;
-  source?: string | null;
-  score?: number;
-}
-
-interface ConversationItem {
-  participantId: string;
-  title: string;
-  preview: string;
-  updatedAt: string;
-  nickname?: string | null;
-}
-
-interface ChatClientProps {
+export default function ChatClient({
+  botName,
+  user,
+}: {
   botName: string;
   user: {
     id: string;
     name: string | null;
     email: string;
+    role: "admin" | "user";
   };
-}
-
-function CrescentIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-      <path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10c1.292 0 2.526-.245 3.66-.69A8 8 0 0 1 8 12a8 8 0 0 1 7.66-9.31A10.052 10.052 0 0 0 12 2z" />
-      <circle cx="18" cy="6" r="1.5" />
-    </svg>
+}) {
+  const chat = useChat(user.name || user.email.split("@")[0]);
+  const { busy, newChat } = chat;
+  const { dark, toggle } = useChatTheme();
+  const desktop = useSyncExternalStore(
+    subscribeDesktop,
+    () => window.matchMedia("(min-width: 768px)").matches,
+    () => true,
   );
-}
-
-function createConversationId() {
-  return `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function createMessageId() {
-  return `msg-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-export default function ChatClient({ botName, user }: ChatClientProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [sidebarMode, setSidebarMode] = useState<"auto" | "open" | "closed">(
+    "auto",
+  );
+  const sidebarOpen = sidebarMode === "auto" ? desktop : sidebarMode === "open";
+  const closeSidebar = useCallback(() => setSidebarMode("closed"), []);
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [participantId, setParticipantId] = useState("");
-  const [userName, setUserName] = useState(user.name || user.email.split("@")[0] || "");
-  const [showNameInput, setShowNameInput] = useState(false);
-  const [responseDepth, setResponseDepth] = useState<"ringkas" | "standar" | "mendalam">("standar");
-  const [modeMenuOpen, setModeMenuOpen] = useState(false);
-  const [showCitations, setShowCitations] = useState(true);
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  const loadConversations = useCallback(async () => {
-    try {
-      const response = await fetch("/api/chat/conversations", { cache: "no-store" });
-      if (!response.ok) return;
-      const data = await response.json();
-      setConversations(data.conversations || []);
-    } catch {
-      // noop
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<"general" | "archive" | null>(
+    null,
+  );
+  const [sharing, setSharing] = useState(false);
+  const [sources, setSources] = useState<Citation[] | null>(null);
+  const [reportId, setReportId] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const composer = useRef<HTMLTextAreaElement>(null);
+  const scroll = useRef<HTMLDivElement>(null);
+  const stick = useRef(true);
+  const scrollConversation = useRef("");
+  const olderAnchor = useRef<{ height: number; top: number } | null>(null);
+  const speech = useChatSpeech(
+    (text) =>
+      setInput((value) =>
+        (value + (value.trim() ? " " : "") + text).slice(0, 8000),
+      ),
+    chat.setError,
+  );
+  const lastAssistant = chat.messages.findLast((m) => m.role === "assistant");
+  const pending = chat.phase !== "idle";
+  const empty = !chat.messages.length && !chat.loadingHistory;
+  const openSearch = useCallback(() => {
+    setSearchOpen(true);
+    if (!desktop) setSidebarMode("closed");
+  }, [desktop]);
+  useLayoutEffect(() => {
+    const element = scroll.current;
+    if (!element) return;
+    if (scrollConversation.current !== chat.activeId) {
+      stick.current = true;
+      olderAnchor.current = null;
+      scrollConversation.current = chat.activeId;
     }
-  }, []);
-
-  const loadMessages = useCallback(async (targetParticipantId: string) => {
-    try {
-      const response = await fetch(`/api/chat/conversations/${targetParticipantId}`, {
-        cache: "no-store",
-      });
-
-      if (!response.ok) return;
-      const data = await response.json();
-
-      setMessages(
-        (data.messages || []).map((msg: Omit<Message, "id">, index: number) => ({
-          ...msg,
-          id: createMessageId() + `-${index}`,
-        }))
-      );
-      if (data?.participant?.nickname) {
-        setUserName(data.participant.nickname);
+    if (olderAnchor.current) {
+      const anchor = olderAnchor.current;
+      element.scrollTop = anchor.top + element.scrollHeight - anchor.height;
+      olderAnchor.current = null;
+    } else if (stick.current) element.scrollTop = element.scrollHeight;
+  }, [chat.messages, chat.activeId]);
+  useEffect(() => {
+    document.title =
+      (chat.messages.length ? chat.title + " — " : "") + "Hikmah AI";
+  }, [chat.title, chat.messages.length]);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => {
+      if (document.querySelector("dialog[open]")) return;
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        event.key.toLowerCase() === "o"
+      ) {
+        event.preventDefault();
+        if (!busy) {
+          newChat();
+          setInput("");
+          composer.current?.focus();
+        }
       }
-    } catch {
-      // noop
-    }
-  }, []);
-
-  useEffect(() => {
-    loadConversations();
-  }, [loadConversations]);
-
-  useEffect(() => {
-    if (!conversations.length && !participantId) {
-      setParticipantId(createConversationId());
-      setMessages([]);
-      return;
-    }
-
-    if (conversations.length && !participantId) {
-      const latest = conversations[0];
-      setParticipantId(latest.participantId);
-      loadMessages(latest.participantId);
-    }
-  }, [conversations, participantId, loadMessages]);
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  useEffect(() => {
-    const handler = () => setModeMenuOpen(false);
-    window.addEventListener("click", handler);
-    return () => window.removeEventListener("click", handler);
-  }, []);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!input.trim() || loading || !participantId) return;
-
-    const userMessage = input.trim();
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        openSearch();
+      }
+      if (event.key === "Escape")
+        document
+          .querySelectorAll<HTMLDetailsElement>("details[open]")
+          .forEach((details) => {
+            details.open = false;
+            details.querySelector<HTMLElement>("summary")?.focus();
+          });
+    };
+    const dismiss = (event: MouseEvent) =>
+      document
+        .querySelectorAll<HTMLDetailsElement>("details[open]")
+        .forEach((details) => {
+          if (event.target instanceof Node && !details.contains(event.target))
+            details.open = false;
+        });
+    window.addEventListener("keydown", key);
+    document.addEventListener("click", dismiss);
+    return () => {
+      window.removeEventListener("keydown", key);
+      document.removeEventListener("click", dismiss);
+    };
+  }, [busy, newChat, openSearch]);
+  function startNew(temporary = false) {
+    speech.stopDictation();
+    speech.stopReading();
+    chat.newChat(temporary);
     setInput("");
-    setMessages((prev) => [...prev, { id: createMessageId(), role: "user", content: userMessage }]);
-    setLoading(true);
-
-    if (inputRef.current) inputRef.current.style.height = "auto";
-
+    stick.current = true;
+    if (!desktop) closeSidebar();
+    composer.current?.focus();
+  }
+  function select(id: string) {
+    speech.stopDictation();
+    speech.stopReading();
+    chat.select(id);
+    setInput("");
+    stick.current = true;
+    if (!desktop) closeSidebar();
+  }
+  function prefill(text: string) {
+    setInput(text);
+    composer.current?.focus();
+  }
+  async function copy(id: string, text: string) {
     try {
-      const response = await fetch("/api/chat/web", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          participantId,
-          message: userMessage,
-          userName: userName || undefined,
-          saveHistory: true,
-          responseDepth,
-          includeCitations: showCitations,
-        }),
-      });
-
-      if (response.status === 401) {
-        window.location.reload();
-        return;
-      }
-
-      if (!response.ok) {
-        let backendMessage = `HTTP ${response.status}`;
-        try {
-          const data = await response.json();
-          if (data?.error && typeof data.error === "string") {
-            backendMessage = data.error;
-          }
-        } catch {
-          // ignore json parse failure
-        }
-        throw new Error(backendMessage);
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No reader");
-
-      const decoder = new TextDecoder("utf-8");
-      let assistantMessage = "";
-      let sseBuffer = "";
-      let pendingCitations: CitationItem[] | null = null;
-      let pendingCitationNotice: string | null = null;
-      const assistantMessageId = createMessageId();
-
-      setMessages((prev) => [...prev, { id: assistantMessageId, role: "assistant", content: "" }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        sseBuffer += decoder.decode(value, { stream: true });
-        const events = sseBuffer.split("\n\n");
-        sseBuffer = events.pop() || "";
-
-        for (const event of events) {
-          const lines = event.split("\n");
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const data = line.slice(6);
-            if (data === "[DONE]") continue;
-
-            try {
-              const payload = JSON.parse(data) as {
-                type?: string;
-                content?: string;
-                citations?: CitationItem[];
-                notice?: string;
-              };
-
-              if (payload.type === "citations" && Array.isArray(payload.citations)) {
-                pendingCitations = payload.citations;
-                if (typeof payload.notice === "string") {
-                  pendingCitationNotice = payload.notice;
-                }
-
-                setMessages((prev) => {
-                  const updated = [...prev];
-                  const targetIndex = updated.findIndex((msg) => msg.id === assistantMessageId);
-                  if (targetIndex === -1) return prev;
-
-                  const target = updated[targetIndex];
-
-                  updated[targetIndex] = {
-                    ...target,
-                    citations: payload.citations,
-                    citationNotice: pendingCitationNotice || target.citationNotice,
-                  };
-                  return updated;
-                });
-                continue;
-              }
-
-              if (!payload.content) continue;
-
-              assistantMessage += payload.content;
-              setMessages((prev) => {
-                const updated = [...prev];
-                const targetIndex = updated.findIndex((msg) => msg.id === assistantMessageId);
-                if (targetIndex === -1) return prev;
-
-                const target = updated[targetIndex];
-
-                updated[targetIndex] = {
-                  ...target,
-                  content: assistantMessage,
-                  citations: pendingCitations ?? target.citations,
-                  citationNotice: pendingCitationNotice || target.citationNotice,
-                };
-                return updated;
-              });
-            } catch {
-              // wait until JSON complete
-            }
-          }
-        }
-      }
-
-      setMessages((prev) => {
-        const updated = [...prev];
-        const targetIndex = updated.findIndex((msg) => msg.id === assistantMessageId);
-        if (targetIndex === -1) return prev;
-
-        const target = updated[targetIndex];
-        updated[targetIndex] = {
-          ...target,
-          citations: pendingCitations ?? target.citations,
-          citationNotice: pendingCitationNotice || target.citationNotice,
-        };
-
-        return updated;
-      });
-
-      decoder.decode();
-      await loadConversations();
+      await navigator.clipboard.writeText(text);
+      setCopied(id);
+    } catch {
+      chat.setError(
+        "Teks belum dapat disalin otomatis. Pilih teks untuk menyalinnya.",
+      );
+    }
+  }
+  async function exportChat() {
+    if (!chat.activeId || chat.temporary) return;
+    setExporting(true);
+    try {
+      const response = await fetch(
+        "/api/chat/conversations/" +
+          encodeURIComponent(chat.activeId) +
+          "/export",
+        { cache: "no-store" },
+      );
+      if (!response.ok) throw new Error(await apiError(response));
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "hikmah-percakapan.md";
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
-      console.error("Chat error:", error);
-      const message =
-        error instanceof Error && error.message
-          ? `Maaf, terjadi kesalahan saat memproses pesan Anda: ${error.message}`
-          : "Maaf, terjadi kesalahan saat memproses pesan Anda. Silakan coba lagi.";
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: createMessageId(),
-          role: "assistant",
-          content: message,
-        },
-      ]);
+      chat.setError(
+        error instanceof Error
+          ? error.message
+          : "Percakapan belum dapat diekspor.",
+      );
     } finally {
-      setLoading(false);
+      setExporting(false);
     }
   }
-
-  async function clearChat() {
-    const newId = createConversationId();
-    setParticipantId(newId);
-    setMessages([]);
-    await loadConversations();
-  }
-
-  async function openConversation(targetParticipantId: string) {
-    setParticipantId(targetParticipantId);
-    await loadMessages(targetParticipantId);
-  }
-
-  async function deleteConversation(targetParticipantId: string) {
-    await fetch("/api/chat/conversations", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ participantId: targetParticipantId }),
-    });
-
-    if (participantId === targetParticipantId) {
-      const newId = createConversationId();
-      setParticipantId(newId);
-      setMessages([]);
-    }
-    await loadConversations();
-  }
-
-  async function handleLogout() {
-    await fetch("/api/chat-auth/logout", { method: "POST" });
-    window.location.reload();
-  }
-
-  function handleNameChange(name: string) {
-    setUserName(name);
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e);
-    }
-  }
-
-  function autoResize(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    const el = e.target;
-    el.style.height = "auto";
-    el.style.height = Math.min(el.scrollHeight, 160) + "px";
-    setInput(el.value);
-  }
-
-  function renderAssistantMarkdown(content: string) {
-    return (
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>,
-          ul: ({ children }) => <ul className="list-disc pl-5 my-2 space-y-1">{children}</ul>,
-          ol: ({ children }) => <ol className="list-decimal pl-5 my-2 space-y-1">{children}</ol>,
-          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-          strong: ({ children }) => <strong className="font-semibold text-[#d4e8df]">{children}</strong>,
-          code: ({ className, children }) => {
-            const isInline = !className;
-            return isInline ? (
-              <code className="px-1 py-0.5 rounded bg-[#2dd4a8]/10 text-[#9de6cf] text-[12px]">{children}</code>
-            ) : (
-              <code className="block p-3 rounded-xl bg-[#081510] border border-[#2dd4a8]/15 text-[#c7e9dc] text-[12px] overflow-x-auto">
-                {children}
-              </code>
-            );
-          },
-        }}
+  const composerElement = (
+    <ChatComposer
+      key={(chat.activeId || "new") + chat.temporary}
+      value={input}
+      onChange={setInput}
+      textareaRef={composer}
+      onSend={async (text, files) => {
+        speech.stopReading();
+        stick.current = true;
+        await chat.send(text, false, files);
+      }}
+      busy={pending}
+      stopping={chat.phase === "stopping"}
+      loading={chat.loadingHistory || chat.serverBusy}
+      onStop={chat.stop}
+      listening={speech.listening}
+      canDictate={speech.canDictate}
+      onDictate={speech.dictate}
+      onError={chat.setError}
+      temporary={chat.temporary}
+    />
+  );
+  const errorElement = chat.error && (
+    <div role="alert" className={styles.errorBanner}>
+      <div>
+        {chat.error}
+        {chat.canRegenerate && !chat.busy && (
+          <button
+            type="button"
+            className={styles.textButton}
+            onClick={() => void chat.regenerate()}
+          >
+            Coba buat ulang
+          </button>
+        )}
+      </div>
+      <button
+        type="button"
+        className={styles.iconButton}
+        aria-label="Tutup pemberitahuan"
+        onClick={() => chat.setError("")}
       >
-        {content}
-      </ReactMarkdown>
-    );
-  }
-
-  function modeLabel(mode: "ringkas" | "standar" | "mendalam") {
-    if (mode === "ringkas") return "Cepat";
-    if (mode === "mendalam") return "Pro";
-    return "Standar";
-  }
-
-  function modeDesc(mode: "ringkas" | "standar" | "mendalam") {
-    if (mode === "ringkas") return "Jawaban singkat dan langsung.";
-    if (mode === "mendalam") return "Analisis lebih detail dan bernuansa.";
-    return "Seimbang antara ringkas dan detail.";
-  }
-
+        <ChatIcon name="close" size={16} />
+      </button>
+    </div>
+  );
   return (
-    <div className="h-dvh flex bg-[#050a08] text-[#e8f0ec] font-[family-name:var(--font-dm-sans)]">
-      <aside
-        className={`${sidebarOpen ? "w-[280px]" : "w-0"} transition-all duration-200 overflow-hidden border-r border-white/[0.05] bg-[#06120e]`}
-      >
-        <div className="h-full flex flex-col">
-          <div className="p-3 border-b border-white/[0.05]">
-            <button
-              onClick={clearChat}
-              className="w-full rounded-xl bg-[#2dd4a8] text-[#050a08] text-sm font-semibold py-2.5"
-            >
-              + Chat Baru
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto chat-scrollbar p-2 space-y-1">
-            {conversations.map((conv) => (
-              <div key={conv.participantId} className="group">
+    <div className={styles.workspace} data-theme={dark ? "dark" : "light"}>
+      <ChatSidebar
+        open={sidebarOpen}
+        mobile={!desktop}
+        activeId={chat.temporary ? "" : chat.activeId}
+        busy={chat.busy}
+        refreshKey={chat.refreshKey}
+        user={user}
+        onClose={closeSidebar}
+        onNew={() => startNew()}
+        onSelect={select}
+        onDeleted={(id) => {
+          if (id === chat.activeId) startNew();
+        }}
+        onRenamed={(id, title) => {
+          if (id === chat.activeId) chat.updateTitle(title);
+        }}
+        onError={chat.setError}
+        onSearch={openSearch}
+        onSettings={(tab) => {
+          setSettingsTab(tab || "general");
+          if (!desktop) closeSidebar();
+        }}
+      />
+      {sidebarOpen && !desktop && (
+        <button
+          type="button"
+          className={styles.mobileBackdrop}
+          aria-label="Tutup daftar percakapan"
+          onClick={closeSidebar}
+        />
+      )}
+      <main className={styles.main} inert={sidebarOpen && !desktop}>
+        <header className={styles.header}>
+          <div className={styles.headerStart}>
+            {!sidebarOpen && (
+              <>
                 <button
-                  onClick={() => openConversation(conv.participantId)}
-                  className={`w-full text-left p-2.5 rounded-lg border ${
-                    participantId === conv.participantId
-                      ? "border-[#2dd4a8]/25 bg-[#2dd4a8]/10"
-                      : "border-transparent hover:border-white/[0.06] hover:bg-white/[0.03]"
-                  }`}
+                  type="button"
+                  className={styles.iconButton}
+                  aria-label="Buka sidebar"
+                  aria-expanded={sidebarOpen}
+                  aria-controls="conversation-sidebar"
+                  onClick={() => setSidebarMode("open")}
                 >
-                  <p className="text-sm text-[#d2e7dc] line-clamp-1">{conv.title || "Percakapan"}</p>
-                  <p className="text-[11px] text-[#4a6b5c] line-clamp-1 mt-0.5">{conv.preview || "Belum ada pesan"}</p>
+                  <ChatIcon name="panel" size={21} />
                 </button>
                 <button
-                  onClick={() => deleteConversation(conv.participantId)}
-                  className="hidden group-hover:block text-[10px] text-red-300/70 hover:text-red-300 px-2 pt-1"
+                  type="button"
+                  className={styles.iconButton + " " + styles.headerNew}
+                  aria-label="Chat baru"
+                  title="Chat baru"
+                  disabled={busy}
+                  onClick={() => startNew()}
                 >
-                  Hapus
+                  <ChatIcon name="edit" size={21} />
                 </button>
+              </>
+            )}
+            <details className={styles.modelMenu}>
+              <summary className={styles.headerBrand}>
+                {/^hikmah\s?ai$/i.test(botName) ? <Wordmark /> : botName}
+                <ChatIcon name="down" size={15} />
+              </summary>
+              <div className={styles.rowMenu}>
+                <p className={styles.menuLabel}>Gaya jawaban</p>
+                {modes.map((mode) => (
+                  <button
+                    type="button"
+                    key={mode.id}
+                    disabled={chat.busy}
+                    aria-pressed={chat.depth === mode.id}
+                    onClick={(event) => {
+                      chat.setDepth(mode.id);
+                      event.currentTarget
+                        .closest("details")
+                        ?.removeAttribute("open");
+                    }}
+                  >
+                    <div>
+                      <strong>{mode.name}</strong>
+                      <span>{mode.description}</span>
+                    </div>
+                    {chat.depth === mode.id && (
+                      <ChatIcon name="check" size={17} />
+                    )}
+                  </button>
+                ))}
+                <p className={styles.menuNote}>
+                  Asisten khusus keislaman dengan rujukan.
+                </p>
               </div>
-            ))}
+            </details>
+            {chat.depth !== "standar" && (
+              <span className={styles.modeLabel}>
+                {modes.find((m) => m.id === chat.depth)?.name}
+              </span>
+            )}
           </div>
-
-          <div className="p-3 border-t border-white/[0.05]">
-            <p className="text-xs text-[#7a9d8e] mb-2 truncate">{user.name || user.email}</p>
-            <button
-              onClick={handleLogout}
-              className="w-full rounded-lg border border-white/[0.08] py-2 text-xs text-[#9ab8a8] hover:bg-white/[0.04]"
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </aside>
-
-      <div className="flex-1 h-dvh flex flex-col min-w-0">
-        <header className="flex items-center justify-between px-4 sm:px-6 h-16 bg-[#050a08]/80 backdrop-blur-2xl shrink-0 border-b border-white/[0.04]">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen((v) => !v)}
-              className="flex items-center justify-center size-9 rounded-xl border border-white/[0.07] hover:bg-[#2dd4a8]/[0.06]"
-            >
-              <svg className="w-4 h-4 text-[#6a8d7e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
-
-            <Link
-              href="/"
-              className="flex items-center justify-center size-9 rounded-xl border border-white/[0.07] hover:bg-[#2dd4a8]/[0.06]"
-              aria-label="Back to home"
-            >
-              <svg className="w-4 h-4 text-[#6a8d7e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </Link>
-
-            <div className="flex items-center gap-2.5">
-              <div className="size-9 rounded-xl bg-gradient-to-br from-[#2dd4a8]/20 to-[#2dd4a8]/5 border border-[#2dd4a8]/20 flex items-center justify-center">
-                <CrescentIcon className="w-5 h-5 text-[#2dd4a8]" />
-              </div>
-              <div>
-                <h1 className="font-[family-name:var(--font-playfair)] font-bold text-base leading-tight">{botName}</h1>
-                <p className="text-[10px] text-[#2dd4a8]/60">Memory aktif · History tersimpan</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            {showNameInput ? (
-              <input
-                type="text"
-                value={userName}
-                onChange={(e) => handleNameChange(e.target.value)}
-                onBlur={() => setShowNameInput(false)}
-                placeholder="Nama panggilan"
-                autoFocus
-                className="w-36 px-3 py-1.5 text-sm bg-[#2dd4a8]/[0.05] border border-[#2dd4a8]/[0.12] rounded-lg text-[#e8f0ec] placeholder-[#3a5a48] focus:outline-none"
-              />
-            ) : (
+          <div className={styles.headerEnd}>
+            {(empty || chat.temporary) && (
               <button
-                onClick={() => setShowNameInput(true)}
-                className="text-xs text-[#3a5a48] hover:text-[#7a9d8e] px-2 py-1 rounded-lg hover:bg-white/[0.04]"
+                type="button"
+                className={styles.temporaryButton}
+                aria-pressed={chat.temporary}
+                disabled={chat.busy}
+                title="Chat sementara tidak disimpan di riwayat"
+                onClick={() => startNew(!chat.temporary)}
               >
-                {userName || "Atur panggilan"}
+                <ChatIcon name="temporary" size={20} />
+                <span>Sementara</span>
               </button>
+            )}
+            {!empty && !chat.temporary && (
+              <>
+                <button
+                  type="button"
+                  className={styles.shareButton}
+                  disabled={chat.busy || chat.loadingHistory}
+                  onClick={() => setSharing(true)}
+                >
+                  <ChatIcon name="share" size={18} />
+                  <span>Bagikan</span>
+                </button>
+                <details className={styles.headerMore}>
+                  <summary aria-label="Menu percakapan">
+                    <ChatIcon name="more" size={21} />
+                  </summary>
+                  <div className={styles.rowMenu}>
+                    <button
+                      type="button"
+                      disabled={exporting}
+                      onClick={(event) => {
+                        event.currentTarget
+                          .closest("details")
+                          ?.removeAttribute("open");
+                        void exportChat();
+                      }}
+                    >
+                      <ChatIcon name="download" size={18} />
+                      {exporting ? "Menyiapkan ekspor…" : "Ekspor percakapan"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={chat.busy}
+                      onClick={(event) => {
+                        event.currentTarget
+                          .closest("details")
+                          ?.removeAttribute("open");
+                        startNew(true);
+                      }}
+                    >
+                      <ChatIcon name="temporary" size={18} />
+                      Chat sementara baru
+                    </button>
+                  </div>
+                </details>
+              </>
             )}
           </div>
         </header>
-
-        <div className="flex-1 overflow-y-auto chat-scrollbar relative">
-          <div
-            className="absolute inset-0 opacity-[0.015] pointer-events-none"
-            style={{
-              backgroundImage: "radial-gradient(rgba(45,212,168,0.8) 1px, transparent 1px)",
-              backgroundSize: "32px 32px",
-            }}
-          />
-
-          <div className="relative max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-5">
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-                <p className="text-[#d4a72d]/65 text-xl mb-3 font-[family-name:var(--font-playfair)]">بِسْمِ اللَّهِ</p>
-                <h2 className="font-[family-name:var(--font-playfair)] text-2xl font-bold mb-2 text-[#d4e8df]">
-                  Assalamu'alaikum, {userName || user.name || "Sahabat"}!
-                </h2>
-                <p className="text-[#4a6b5c] max-w-sm text-sm">
-                  Riwayat percakapan Anda tersimpan per akun. Lanjutkan percakapan lama dari sidebar kiri.
+        <div
+          className={
+            styles.contentRegion + (empty ? " " + styles.emptyRegion : "")
+          }
+        >
+          {empty ? (
+            <div className={styles.welcome}>
+              {!chat.temporary && (
+                <p className={styles.greeting}>
+                  Assalamu&apos;alaikum
+                  {user.name ? ", " + user.name.split(" ")[0] : ""}.
                 </p>
-              </div>
-            )}
-
-            {messages.map((message) => (
+              )}
+              <h1>
+                {chat.temporary ? "Chat sementara" : "Mau tanya apa hari ini?"}
+              </h1>
+              {chat.temporary && (
+                <p className={styles.temporaryCopy}>
+                  Percakapan ini tidak disimpan di riwayat Hikmah AI.
+                  <br />
+                  Pesan tetap diproses oleh penyedia AI.
+                </p>
+              )}
+              {errorElement}
+              {composerElement}
+              {!chat.temporary && (
+                <div className={styles.suggestions}>
+                  {starters.map((starter) => (
+                    <button
+                      key={starter.label}
+                      type="button"
+                      onClick={() => prefill(starter.question)}
+                    >
+                      {starter.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
               <div
-                key={message.id}
-                className={`flex items-end gap-2.5 ${message.role === "user" ? "flex-row-reverse" : "flex-row"} animate-fade-in`}
+                ref={scroll}
+                className={styles.scroll}
+                onScroll={(event) => {
+                  const el = event.currentTarget;
+                  const distance =
+                    el.scrollHeight - el.scrollTop - el.clientHeight;
+                  stick.current = distance < 100;
+                  setShowScrollDown(distance > 260);
+                }}
               >
-                {message.role === "assistant" ? (
-                  <div className="size-8 rounded-xl bg-gradient-to-br from-[#2dd4a8]/15 to-[#2dd4a8]/5 border border-[#2dd4a8]/15 flex items-center justify-center shrink-0 mb-0.5">
-                    <CrescentIcon className="w-4 h-4 text-[#2dd4a8]" />
-                  </div>
-                ) : (
-                  <div className="size-8 rounded-xl bg-[#2dd4a8]/80 flex items-center justify-center shrink-0 mb-0.5 text-[#050a08] font-bold text-xs font-[family-name:var(--font-playfair)]">
-                    {(userName || user.name || user.email)[0]?.toUpperCase() || "U"}
-                  </div>
-                )}
-
-                <div
-                  className={`max-w-[78%] sm:max-w-[68%] ${
-                    message.role === "user"
-                      ? "bg-[#2dd4a8] text-[#050a08] rounded-2xl rounded-br-sm px-4 py-3"
-                      : "bg-[#0d1f18] border border-[#2dd4a8]/[0.1] rounded-2xl rounded-bl-sm px-4 py-3"
-                  }`}
+                <section
+                  className={styles.messages}
+                  aria-label="Riwayat percakapan"
                 >
-                  {message.role === "assistant" ? (
-                    <div className="text-[14.5px] leading-relaxed text-[#c7e9dc] break-words">
-                      {renderAssistantMarkdown(message.content)}
-
-                      {showCitations && Array.isArray(message.citations) && message.citations.length > 0 && (
-                        <div className="mt-3 rounded-2xl border border-white/[0.08] bg-[#0b1713] overflow-hidden">
-                          <div className="px-3 py-2 border-b border-white/[0.06] flex items-center justify-between">
-                            <p className="text-[10px] uppercase tracking-widest text-[#84b8a3]">Sumber Referensi</p>
-                            <span className="text-[10px] text-[#5e8977]">{message.citations.length} dokumen</span>
-                          </div>
-                          <div className="p-2 space-y-1.5">
-                            {message.citations.map((citation, idx) => {
-                              const relevance = typeof citation.score === "number" ? Math.round(citation.score * 100) : null;
-                              return (
-                                <div
-                                  key={`${citation.title}-${idx}`}
-                                  className="rounded-xl border border-white/[0.05] bg-[#0f1d18] px-3 py-2"
-                                >
-                                  <div className="flex items-start justify-between gap-2">
-                                    <p className="text-[11px] font-medium text-[#d3ebe1] leading-relaxed">
-                                      {idx + 1}. {citation.title}
-                                    </p>
-                                    {relevance !== null ? (
-                                      <span className="shrink-0 text-[10px] px-2 py-0.5 rounded-full bg-[#2dd4a8]/15 text-[#9de6cf]">
-                                        {relevance}%
-                                      </span>
-                                    ) : null}
-                                  </div>
-                                  {citation.source ? (
-                                    <p className="text-[10px] text-[#6f9e8b] mt-1 truncate">{citation.source}</p>
-                                  ) : null}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {showCitations && (!message.citations || message.citations.length === 0) && message.citationNotice ? (
-                        <div className="mt-3 rounded-xl border border-white/[0.08] bg-[#0b1713] px-3 py-2">
-                          <p className="text-[11px] text-[#78a894] leading-relaxed">{message.citationNotice}</p>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap text-[14.5px] leading-relaxed font-medium break-words">
-                      {message.content}
+                  {chat.loadingHistory && (
+                    <p role="status" className={styles.emptyNote}>
+                      Memuat percakapan…
                     </p>
                   )}
-                </div>
+                  {chat.hasOlder && (
+                    <button
+                      type="button"
+                      className={styles.loadOlder}
+                      disabled={chat.loadingOlder || chat.busy}
+                      onClick={() => {
+                        const el = scroll.current;
+                        if (el) {
+                          olderAnchor.current = {
+                            top: el.scrollTop,
+                            height: el.scrollHeight,
+                          };
+                          stick.current = false;
+                        }
+                        void chat.loadOlder().then((success) => {
+                          if (!success) olderAnchor.current = null;
+                        });
+                      }}
+                    >
+                      <ChatIcon name="history" size={16} />
+                      {chat.loadingOlder ? "Memuat…" : "Muat pesan sebelumnya"}
+                    </button>
+                  )}
+                  {chat.messages.map((message) => (
+                    <ChatMessageRow
+                      key={message.id}
+                      message={message}
+                      pending={pending && message.id === lastAssistant?.id}
+                      busy={chat.busy}
+                      temporary={chat.temporary}
+                      canRegenerate={chat.canRegenerate}
+                      last={message.id === lastAssistant?.id}
+                      copied={copied === message.id}
+                      onCopy={() => void copy(message.id, message.content)}
+                      onSources={() => setSources(message.citations)}
+                      onReport={() => setReportId(message.id)}
+                      onRegenerate={() => void chat.regenerate()}
+                      reading={speech.reading === message.id}
+                      onRead={() => speech.read(message.id, message.content)}
+                      onFeedback={(value) =>
+                        void chat.feedback(message.id, value)
+                      }
+                      onEdit={async (text, attachments) => {
+                        stick.current = true;
+                        await chat.editQuestion(message.id, text, attachments);
+                      }}
+                    />
+                  ))}
+                </section>
               </div>
-            ))}
-
-            {loading && (
-              <div className="flex items-end gap-2.5 animate-fade-in">
-                <div className="size-8 rounded-xl bg-gradient-to-br from-[#2dd4a8]/15 to-[#2dd4a8]/5 border border-[#2dd4a8]/15 flex items-center justify-center shrink-0">
-                  <CrescentIcon className="w-4 h-4 text-[#2dd4a8]" />
-                </div>
-                <div className="bg-[#0d1f18] border border-[#2dd4a8]/[0.1] rounded-2xl rounded-bl-sm px-5 py-4">
-                  <div className="flex items-center gap-1.5">
-                    {[0, 150, 300].map((delay) => (
-                      <span
-                        key={delay}
-                        className="size-1.5 bg-[#2dd4a8]/50 rounded-full animate-bounce"
-                        style={{ animationDelay: `${delay}ms` }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-
-        <div className="shrink-0 bg-[#050a08]/90 backdrop-blur-2xl">
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-[#2dd4a8]/10 to-transparent" />
-          <form onSubmit={handleSubmit} className="max-w-3xl mx-auto px-4 sm:px-6 pt-3 pb-4">
-            <div className="flex items-end gap-3 bg-[#0d1f18]/80 border border-[#2dd4a8]/[0.12] rounded-2xl px-4 py-3 focus-within:border-[#2dd4a8]/25 transition-all">
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={autoResize}
-                onKeyDown={handleKeyDown}
-                placeholder={`Tanyakan kepada ${botName}...`}
-                disabled={loading}
-                rows={1}
-                className="flex-1 bg-transparent text-[#d4e8df] placeholder-[#3a5a48] focus:outline-none resize-none text-[14.5px] leading-relaxed max-h-40 disabled:opacity-40"
-              />
-              <button
-                type="submit"
-                disabled={loading || !input.trim()}
-                className="flex items-center justify-center size-9 shrink-0 rounded-xl bg-[#2dd4a8] text-[#050a08] disabled:opacity-25"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex items-center justify-between mt-2 px-1">
-              <p className="text-[10px] text-[#1e3328]">History tersimpan per akun Anda</p>
-              <div className="flex items-center gap-2">
-                <label className="text-[10px] text-[#365446] px-2.5 py-1 rounded-full border border-white/[0.05] bg-[#0d1f18]/50 flex items-center gap-2">
-                  <span>Sitasi</span>
-                  <input
-                    type="checkbox"
-                    checked={showCitations}
-                    onChange={(e) => setShowCitations(e.target.checked)}
-                    disabled={loading}
-                    className="accent-[#2dd4a8]"
-                  />
-                </label>
-
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <div className={styles.composerWrap}>
+                {showScrollDown && (
                   <button
                     type="button"
-                    onClick={() => setModeMenuOpen((v) => !v)}
-                    className="text-[11px] text-[#9dcfbf] px-3 py-1.5 rounded-full border border-white/[0.08] bg-[#0d1f18]/60 hover:bg-[#12261f] flex items-center gap-1.5"
+                    className={styles.scrollDown}
+                    aria-label="Ke pesan terbaru"
+                    onClick={() => {
+                      stick.current = true;
+                      scroll.current?.scrollTo({
+                        top: scroll.current.scrollHeight,
+                        behavior: "smooth",
+                      });
+                    }}
                   >
-                    {modeLabel(responseDepth)}
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <ChatIcon name="down" size={19} />
                   </button>
-
-                  {modeMenuOpen && (
-                    <div className="absolute right-0 bottom-10 w-56 rounded-2xl border border-white/[0.08] bg-[#101d18] shadow-2xl p-1.5 z-20">
-                      {(["ringkas", "standar", "mendalam"] as const).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => {
-                            setResponseDepth(mode);
-                            setModeMenuOpen(false);
-                          }}
-                          className={`w-full text-left rounded-xl px-3 py-2.5 transition-colors ${
-                            responseDepth === mode ? "bg-[#2dd4a8]/15" : "hover:bg-white/[0.04]"
-                          }`}
-                        >
-                          <p className="text-[12px] font-medium text-[#d5ede2]">{modeLabel(mode)}</p>
-                          <p className="text-[10px] text-[#73a08d] mt-0.5">{modeDesc(mode)}</p>
-                        </button>
-                      ))}
-                    </div>
+                )}
+                <div className={styles.composerArea}>
+                  {errorElement}
+                  {chat.serverBusy && !pending && (
+                    <p role="status" className={styles.messageNote}>
+                      Jawaban sedang diproses. Percakapan diperbarui otomatis.
+                    </p>
                   )}
+                  {composerElement}
                 </div>
               </div>
-            </div>
-          </form>
+            </>
+          )}
         </div>
-      </div>
+        <p className={styles.disclaimer}>
+          Hikmah AI dapat keliru. Periksa rujukan untuk penetapan hukum.{" "}
+          <a href="/privacy">Privasi</a>
+        </p>
+      </main>
+      {searchOpen && (
+        <ConversationSearch
+          onClose={() => setSearchOpen(false)}
+          onSelect={select}
+          busy={chat.busy}
+        />
+      )}
+      {settingsTab && (
+        <ChatSettings
+          initialTab={settingsTab}
+          dark={dark}
+          onTheme={toggle}
+          depth={chat.depth}
+          onDepth={chat.setDepth}
+          onClose={() => setSettingsTab(null)}
+          user={user}
+          onSelect={select}
+          onRefresh={chat.refresh}
+          busy={chat.busy}
+        />
+      )}
+      {sharing && (
+        <ShareDialog
+          participantId={chat.activeId}
+          onClose={() => setSharing(false)}
+        />
+      )}
+      {sources && (
+        <SourceDialog sources={sources} onClose={() => setSources(null)} />
+      )}
+      {reportId && (
+        <ReportAnswer messageId={reportId} onClose={() => setReportId(null)} />
+      )}
+      <span role="status" aria-live="polite" className={styles.srOnly}>
+        {chat.phase === "thinking"
+          ? "Hikmah AI sedang menyiapkan jawaban."
+          : chat.phase === "streaming"
+            ? "Hikmah AI sedang menjawab."
+            : chat.phase === "stopping"
+              ? "Respons sedang dihentikan."
+              : ""}
+      </span>
     </div>
   );
 }

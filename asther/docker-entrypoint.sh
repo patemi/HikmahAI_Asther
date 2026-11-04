@@ -2,7 +2,7 @@
 set -e
 
 echo "Running database migrations..."
-bun run db:push
+bun run db:migrate
 
 echo "Seeding database..."
 bun run db:seed

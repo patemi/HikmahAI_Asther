@@ -1,308 +1,216 @@
 "use server";
-
+import { requireAdmin } from "@/lib/auth";
 import { db, schema } from "@/lib/db";
-import { addDocument, deleteDocument, rebuildDocumentChunks } from "@/lib/rag";
-import { eq } from "drizzle-orm";
+import {
+  addDocument,
+  countPendingChunks,
+  deleteDocument,
+  embedPendingChunks,
+  rebuildDocumentChunks,
+} from "@/lib/rag";
+import { HttpError } from "@/lib/http";
+import { documentInputSchema, parseKnowledgeJson } from "@/lib/knowledge-input";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
-type JsonKnowledgeInput = {
-  [key: string]: unknown;
-  title?: unknown;
-  name?: unknown;
-  content?: unknown;
-  text?: unknown;
-  body?: unknown;
-  description?: unknown;
-  message?: unknown;
-  value?: unknown;
-  data?: unknown;
-  source?: unknown;
-  url?: unknown;
-  link?: unknown;
-  metadata?: unknown;
-};
-
-type ParsedDocument = {
-  title: string;
-  content: string;
-  source?: string;
-  metadata?: Record<string, unknown>;
-};
-
-function normalizeTextValue(value: unknown): string {
-  if (typeof value === "string") {
-    return value.trim();
-  }
-
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value);
-  }
-
-  if (value && typeof value === "object") {
-    return JSON.stringify(value, null, 2);
-  }
-
-  return "";
+function refresh() {
+  revalidatePath("/dashboard/knowledge");
+  revalidatePath("/dashboard/knowledge/upload");
 }
-
-function toParsedDocument(item: unknown, fallbackTitle: string): ParsedDocument | null {
-  if (!item || typeof item !== "object") {
-    const primitiveContent = normalizeTextValue(item);
-    if (!primitiveContent) return null;
-    return { title: fallbackTitle, content: primitiveContent };
-  }
-
-  const input = item as JsonKnowledgeInput;
-
-  const title =
-    (typeof input.title === "string" && input.title.trim()) ||
-    (typeof input.name === "string" && input.name.trim()) ||
-    fallbackTitle;
-
-  const source =
-    (typeof input.source === "string" && input.source.trim()) ||
-    (typeof input.url === "string" && input.url.trim()) ||
-    (typeof input.link === "string" && input.link.trim()) ||
-    undefined;
-
-  let content = normalizeTextValue(
-    input.content ??
-      input.text ??
-      input.body ??
-      input.description ??
-      input.message ??
-      input.value ??
-      input.data
+function input(form: FormData) {
+  return documentInputSchema.safeParse(
+    Object.fromEntries(
+      ["title", "content", "source", "author", "locator"].map((key) => [
+        key,
+        form.get(key) || "",
+      ]),
+    ),
   );
-
-  if (!content) {
-    const keys = Object.keys(input);
-    if (keys.length === 0) {
-      return null;
-    }
-    content = JSON.stringify(input, null, 2);
-  }
-
-  const metadata =
-    input.metadata && typeof input.metadata === "object" && !Array.isArray(input.metadata)
-      ? (input.metadata as Record<string, unknown>)
-      : undefined;
-
-  return { title, content, source, metadata };
 }
-
-function parseKnowledgeJson(raw: string, fallbackTitle: string): ParsedDocument[] {
-  const parsed = JSON.parse(raw) as unknown;
-
-  if (Array.isArray(parsed)) {
-    return parsed
-      .map((item, index) =>
-        toParsedDocument(
-          (item ?? {}) as JsonKnowledgeInput,
-          `${fallbackTitle} #${index + 1}`
-        )
-      )
-      .filter((doc): doc is ParsedDocument => Boolean(doc));
-  }
-
-  if (parsed && typeof parsed === "object") {
-    const objectParsed = parsed as Record<string, unknown>;
-
-    if (Array.isArray(objectParsed.documents)) {
-      return objectParsed.documents
-        .map((item, index) =>
-          toParsedDocument(
-            (item ?? {}) as JsonKnowledgeInput,
-            `${fallbackTitle} #${index + 1}`
-          )
-        )
-        .filter((doc): doc is ParsedDocument => Boolean(doc));
-    }
-
-    if (Array.isArray(objectParsed.items)) {
-      return objectParsed.items
-        .map((item, index) =>
-          toParsedDocument(
-            item,
-            `${fallbackTitle} #${index + 1}`
-          )
-        )
-        .filter((doc): doc is ParsedDocument => Boolean(doc));
-    }
-
-    if (Array.isArray(objectParsed.data)) {
-      return objectParsed.data
-        .map((item, index) =>
-          toParsedDocument(
-            item,
-            `${fallbackTitle} #${index + 1}`
-          )
-        )
-        .filter((doc): doc is ParsedDocument => Boolean(doc));
-    }
-
-    const singleDoc = toParsedDocument(objectParsed, fallbackTitle);
-    return singleDoc ? [singleDoc] : [];
-  }
-
-  return [];
+export async function getDocument(id: string) {
+  await requireAdmin();
+  if (!z.uuid().safeParse(id).success)
+    return { error: "ID dokumen tidak valid." };
+  const doc = await db.query.knowledgeDocuments.findFirst({
+    where: eq(schema.knowledgeDocuments.id, id),
+  });
+  if (!doc) return { error: "Dokumen sudah tidak ada. Muat ulang halaman." };
+  return { document: doc };
 }
-
-export async function createDocument(formData: FormData) {
-  const title = formData.get("title") as string;
-  const content = formData.get("content") as string;
-  const source = formData.get("source") as string;
-
+export async function createDocument(form: FormData) {
+  await requireAdmin();
+  const parsed = input(form);
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
   try {
-    if (!title || !content) {
-      return { error: "Title and content are required" };
-    }
-
-    await addDocument(title, content, source || undefined);
-    revalidatePath("/dashboard/knowledge");
+    const { title, content, source, author, locator } = parsed.data;
+    await addDocument(title, content, source, undefined, { author, locator });
+    refresh();
     return { success: true };
-  } catch (error) {
-    console.error("Create document error:", error);
-    return { error: "Failed to create document" };
+  } catch {
+    return { error: "Dokumen belum dapat disimpan. Silakan coba kembali." };
   }
 }
-
-export async function importJsonDocuments(formData: FormData) {
-  const files = formData
+export async function importJsonDocuments(form: FormData) {
+  await requireAdmin();
+  const files = form
     .getAll("jsonFiles")
     .filter((value): value is File => value instanceof File && value.size > 0);
-
-  if (files.length === 0) {
-    return { error: "Please select at least one JSON file" };
-  }
-
+  if (
+    !files.length ||
+    files.length > 10 ||
+    files.reduce((n, file) => n + file.size, 0) > 2_000_000
+  )
+    return { error: "Pilih maksimal 10 file JSON dengan ukuran total 2 MB." };
   try {
+    const documents: Array<z.infer<typeof documentInputSchema>> = [];
+    for (const file of files) {
+      if (!file.name.toLowerCase().endsWith(".json"))
+        return { error: "Hanya file JSON yang didukung." };
+      documents.push(
+        ...parseKnowledgeJson(
+          await file.text(),
+          file.name.replace(/\.json$/i, ""),
+        ),
+      );
+    }
+    if (!documents.length || documents.length > 100)
+      return { error: "Impor harus berisi 1 sampai 100 dokumen." };
     let importedCount = 0;
-
-    for (const jsonFile of files) {
-      if (!jsonFile.name.toLowerCase().endsWith(".json")) {
-        return { error: `Only .json files are supported (invalid: ${jsonFile.name})` };
-      }
-
-      const raw = await jsonFile.text();
-      let parsedDocs: ParsedDocument[];
-
-      try {
-        const fallbackTitle =
-          jsonFile.name.replace(/\.json$/i, "") || "Uploaded JSON Document";
-        parsedDocs = parseKnowledgeJson(raw, fallbackTitle);
-      } catch {
-        return { error: `Invalid JSON format in file: ${jsonFile.name}` };
-      }
-
-      if (parsedDocs.length === 0) {
-        return {
-          error: `No valid documents found in ${jsonFile.name}. Use { title, content }, array of objects, or { documents: [...] }`,
-        };
-      }
-
-      for (const doc of parsedDocs) {
-        await addDocument(doc.title, doc.content, doc.source, doc.metadata);
+    try {
+      for (const { title, content, source, author, locator } of documents) {
+        await addDocument(title, content, source, undefined, {
+          author,
+          locator,
+        });
         importedCount++;
       }
+    } catch {
+      refresh();
+      return {
+        error:
+          "Impor terhenti setelah " +
+          importedCount +
+          " dokumen tersimpan sebagai draft. Periksa daftar sebelum mengimpor ulang.",
+      };
     }
-
-    revalidatePath("/dashboard/knowledge");
-    revalidatePath("/dashboard/knowledge/upload");
-
+    refresh();
     return { success: true, importedCount, fileCount: files.length };
   } catch (error) {
-    console.error("Import JSON documents error:", error);
-    return { error: "Failed to import JSON documents" };
-  }
-}
-
-export async function updateDocument(formData: FormData) {
-  const documentId = formData.get("documentId") as string;
-  const title = formData.get("title") as string;
-  const content = formData.get("content") as string;
-  const source = formData.get("source") as string;
-
-  if (!documentId || !title || !content) {
-    return { error: "Document ID, title, and content are required" };
-  }
-
-  try {
-    // Update the document
-    await db
-      .update(schema.knowledgeDocuments)
-      .set({
-        title,
-        content,
-        source: source || null,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.knowledgeDocuments.id, documentId));
-
-    // Delete old chunks and re-embed
-    await db
-      .delete(schema.knowledgeChunks)
-      .where(eq(schema.knowledgeChunks.documentId, documentId));
-
-    await rebuildDocumentChunks(documentId, content);
-
-    revalidatePath("/dashboard/knowledge");
-    return { success: true };
-  } catch (error) {
-    console.error("Update document error:", error);
-    return { error: "Failed to update document" };
-  }
-}
-
-export async function removeDocument(documentId: string) {
-  try {
-    await deleteDocument(documentId);
-    revalidatePath("/dashboard/knowledge");
-    return { success: true };
-  } catch (error) {
-    console.error("Delete document error:", error);
-    return { error: "Failed to delete document" };
-  }
-}
-
-export async function reembedAllDocuments() {
-  try {
-    const documents = await db.query.knowledgeDocuments.findMany();
-
-    if (documents.length === 0) {
-      return { success: true, processed: 0, message: "No documents to re-embed." };
-    }
-
-    let processed = 0;
-    let failed = 0;
-
-    for (const doc of documents) {
-      try {
-        await db
-          .delete(schema.knowledgeChunks)
-          .where(eq(schema.knowledgeChunks.documentId, doc.id));
-
-        await rebuildDocumentChunks(doc.id, doc.content);
-        processed++;
-      } catch (error) {
-        failed++;
-        console.error(`Re-embed failed for document ${doc.id}:`, error);
-      }
-    }
-
-    revalidatePath("/dashboard/knowledge");
-
     return {
-      success: true,
-      processed,
-      failed,
-      message:
-        failed > 0
-          ? `Re-embed selesai: ${processed} berhasil, ${failed} gagal.`
-          : `Re-embed selesai: ${processed} dokumen berhasil diproses.`,
+      error:
+        error instanceof Error ? error.message : "Format JSON tidak valid.",
     };
-  } catch (error) {
-    console.error("Re-embed all documents error:", error);
-    return { error: "Failed to re-embed documents" };
   }
+}
+export async function updateDocument(form: FormData) {
+  await requireAdmin();
+  const parsed = input(form);
+  const id = z.uuid().safeParse(form.get("documentId"));
+  const version = z.coerce
+    .number()
+    .int()
+    .positive()
+    .safeParse(form.get("version"));
+  if (!parsed.success || !id.success || !version.success)
+    return { error: "Isi dokumen atau versi tidak valid. Muat ulang halaman." };
+  try {
+    const { title, content, source, author, locator } = parsed.data;
+    await rebuildDocumentChunks(id.data, content, {
+      title,
+      source: source || null,
+      author: author || null,
+      locator: locator || null,
+      expectedVersion: version.data,
+    });
+    refresh();
+    return { success: true };
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Dokumen belum dapat diperbarui.",
+    };
+  }
+}
+export async function removeDocument(id: string) {
+  await requireAdmin();
+  if (!z.uuid().safeParse(id).success)
+    return { error: "ID dokumen tidak valid." };
+  await deleteDocument(id);
+  refresh();
+  return { success: true };
+}
+export async function getEmbeddingProgress() {
+  await requireAdmin();
+  return countPendingChunks();
+}
+/** One step of the bulk embedding loop driven by the dashboard. */
+export async function embedPendingBatch(size: number) {
+  await requireAdmin();
+  const batchSize = Math.max(1, Math.min(Math.floor(size) || 1, 256));
+  try {
+    return await embedPendingChunks(batchSize);
+  } catch (error) {
+    if (error instanceof HttpError && error.status === 429)
+      return { error: error.message, retryAfter: error.retryAfter ?? 20 };
+    console.warn(
+      "[Knowledge] Bulk embedding batch failed.",
+      error instanceof Error ? error.message : error,
+    );
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Batch embedding gagal. Coba lagi.",
+    };
+  }
+}
+export async function reviewDocument(form: FormData) {
+  const admin = await requireAdmin();
+  const parsed = z
+    .object({
+      documentId: z.uuid(),
+      version: z.coerce.number().int().positive(),
+      status: z.enum(["draft", "review", "published"]),
+    })
+    .safeParse(Object.fromEntries(form));
+  if (!parsed.success) return { error: "Permintaan tinjauan tidak valid." };
+  const { documentId, version, status } = parsed.data;
+  const doc = await db.query.knowledgeDocuments.findFirst({
+    where: eq(schema.knowledgeDocuments.id, documentId),
+  });
+  if (!doc || doc.version !== version)
+    return { error: "Dokumen telah berubah. Muat ulang halaman." };
+  if (status === "published" && form.get("reviewConfirmed") !== "on")
+    return { error: "Konfirmasi pemeriksaan isi dan sumber diperlukan." };
+  if (
+    status === "published" &&
+    (doc.status !== "review" || !doc.source?.trim())
+  )
+    return {
+      error:
+        "Dokumen harus dalam tinjauan dan memiliki identitas sumber sebelum diterbitkan.",
+    };
+  const [updated] = await db
+    .update(schema.knowledgeDocuments)
+    .set({
+      status,
+      reviewedBy: status === "published" ? admin.name || admin.email : null,
+      reviewedAt: status === "published" ? new Date() : null,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(schema.knowledgeDocuments.id, documentId),
+        eq(schema.knowledgeDocuments.version, version),
+        eq(schema.knowledgeDocuments.status, doc.status),
+      ),
+    )
+    .returning({ id: schema.knowledgeDocuments.id });
+  if (!updated)
+    return { error: "Status dokumen sudah berubah. Muat ulang halaman." };
+  refresh();
+  return { success: true };
 }
